@@ -1,6 +1,6 @@
 from django.urls import path
 
-from testy_mcp.oauth import OAuthMetadataView
+from testy_mcp.oauth_metadata_view import OAuthMetadataView
 from testy_mcp.transport import McpHttpView
 
 urlpatterns = [
@@ -11,7 +11,6 @@ urlpatterns = [
         name="oauth-metadata",
     ),
 ]
-
 try:
     from oauth2_provider import views as oauth_views
 
@@ -20,6 +19,5 @@ try:
         path("oauth/token/", oauth_views.TokenView.as_view(), name="oauth-token"),
         path("oauth/revoke/", oauth_views.RevokeTokenView.as_view(), name="oauth-revoke"),
     ]
-
 except ImportError:
     pass

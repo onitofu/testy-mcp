@@ -7,19 +7,12 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from testy_mcp.auth import get_user_from_request
+from testy_mcp.auth import RequestAuthenticator
+from testy_mcp.json_rpc_error import JsonRpcError
 
 logger = logging.getLogger("testy_mcp")
-
 MCP_PROTOCOL_VERSION = "2025-03-26"
 SUPPORTED_MCP_PROTOCOL_VERSIONS = {"2025-06-18", "2025-03-26", "2024-11-05"}
-
-
-class JsonRpcError(Exception):
-    def __init__(self, code: int, message: str):
-        self.code = code
-        self.message = message
-        super().__init__(message)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -31,40 +24,31 @@ class McpHttpView(View):
     """
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        user = await sync_to_async(get_user_from_request)(request)
+        user = await sync_to_async(RequestAuthenticator.authenticate)(request)
         if user is None:
-            return JsonResponse(
-                {"error": "Authentication required"},
-                status=401,
-            )
+            return JsonResponse({"error": "Authentication required"}, status=401)
         request.user = user
-
         try:
             body = json.loads(request.body)
         except (json.JSONDecodeError, ValueError):
             return self._error_response(-32700, "Parse error", None)
-
         if not isinstance(body, dict):
             return self._error_response(-32600, "Invalid Request", None)
-
         method = body.get("method")
         params = body.get("params", {})
         req_id = body.get("id")
         is_notification = "id" not in body
-
         if not isinstance(method, str):
             return self._error_response(-32600, "Invalid Request", req_id)
         if not isinstance(params, dict):
             return self._error_response(-32602, "Invalid params", req_id)
-
         from simple_history.models import HistoricalRecords
 
-        from testy_mcp.context import set_current_user
+        from testy_mcp.context import RequestContext
         from testy_mcp.server import mcp
 
-        set_current_user(user)
+        RequestContext.set(user)
         HistoricalRecords.context.request = request
-
         try:
             try:
                 result = await self._dispatch(mcp, method, params)
@@ -81,7 +65,7 @@ class McpHttpView(View):
                     return self._error_response(-32603, "Internal error", None, status=500)
                 return self._error_response(-32603, "Internal error", req_id)
         finally:
-            set_current_user(None)
+            RequestContext.set(None)
             try:
                 del HistoricalRecords.context.request
             except AttributeError:
@@ -103,12 +87,8 @@ class McpHttpView(View):
                     "resources": {"subscribe": False, "listChanged": False},
                     "prompts": {"listChanged": False},
                 },
-                "serverInfo": {
-                    "name": mcp_server.name,
-                    "version": "1.0.0",
-                },
+                "serverInfo": {"name": mcp_server.name, "version": "1.0.0"},
             }
-
         if method == "tools/list":
             tools = await mcp_server.list_tools()
             return {
@@ -118,16 +98,13 @@ class McpHttpView(View):
                         "description": t.description or "",
                         "inputSchema": t.inputSchema
                         if isinstance(t.inputSchema, dict)
-                        else (
-                            t.inputSchema.model_dump()
-                            if hasattr(t.inputSchema, "model_dump")
-                            else {}
-                        ),
+                        else t.inputSchema.model_dump()
+                        if hasattr(t.inputSchema, "model_dump")
+                        else {},
                     }
                     for t in tools
-                ],
+                ]
             }
-
         if method == "tools/call":
             name = params.get("name", "")
             arguments = params.get("arguments", {})
@@ -140,7 +117,6 @@ class McpHttpView(View):
             else:
                 text = json.dumps(raw_result, ensure_ascii=False, default=str)
             return {"content": [{"type": "text", "text": text}]}
-
         if method == "resources/list":
             resources = await mcp_server.list_resources()
             return {
@@ -152,9 +128,8 @@ class McpHttpView(View):
                         "mimeType": r.mimeType or "text/plain",
                     }
                     for r in resources
-                ],
+                ]
             }
-
         if method == "resources/read":
             uri = params.get("uri", "")
             contents = await mcp_server.read_resource(uri)
@@ -166,9 +141,8 @@ class McpHttpView(View):
                         "mimeType": c.mime_type if hasattr(c, "mime_type") else "text/plain",
                     }
                     for c in contents
-                ],
+                ]
             }
-
         if method == "prompts/list":
             prompts = await mcp_server.list_prompts()
             return {
@@ -182,13 +156,12 @@ class McpHttpView(View):
                                 "description": a.description or "",
                                 "required": a.required,
                             }
-                            for a in (p.arguments or [])
+                            for a in p.arguments or []
                         ],
                     }
                     for p in prompts
-                ],
+                ]
             }
-
         if method == "prompts/get":
             name = params.get("name", "")
             arguments = params.get("arguments", {})
@@ -205,23 +178,16 @@ class McpHttpView(View):
                     for m in result.messages
                 ],
             }
-
         if method == "ping":
             return {}
-
         if method == "notifications/initialized":
             return None
-
         raise JsonRpcError(-32601, f"Method not found: {method}")
 
     def _success_response(self, req_id, result) -> JsonResponse:
         if result is None:
-            return JsonResponse(
-                {"jsonrpc": "2.0", "result": {}, "id": req_id},
-            )
-        return JsonResponse(
-            {"jsonrpc": "2.0", "result": result, "id": req_id},
-        )
+            return JsonResponse({"jsonrpc": "2.0", "result": {}, "id": req_id})
+        return JsonResponse({"jsonrpc": "2.0", "result": result, "id": req_id})
 
     def _error_response(
         self, code: int, message: str, req_id, status: int | None = None
