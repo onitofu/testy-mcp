@@ -21,6 +21,7 @@ from testy_mcp.tools.delete_suite import DeleteSuiteTool
 from testy_mcp.tools.export_plan_results import ExportPlanResultsTool
 from testy_mcp.tools.export_suite import ExportSuiteTool
 from testy_mcp.tools.get_case import GetCaseTool
+from testy_mcp.tools.get_me import GetMeTool
 from testy_mcp.tools.get_plan import GetPlanTool
 from testy_mcp.tools.get_plan_statistics import GetPlanStatisticsTool
 from testy_mcp.tools.get_project import GetProjectTool
@@ -39,6 +40,7 @@ from testy_mcp.tools.update_suite import UpdateSuiteTool
 
 class TestyMcpServer:
     tool_types = (
+        GetMeTool,
         ListProjectsTool,
         GetProjectTool,
         ListSuitesTool,
