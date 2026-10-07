@@ -3,13 +3,12 @@ import logging
 from django.db import transaction
 from mcp.server.fastmcp import FastMCP
 
-logger = logging.getLogger('testy_mcp')
+logger = logging.getLogger("testy_mcp")
 
 
 def register(mcp: FastMCP):
-
     @mcp.tool()
-    def list_plans(project_id: int, is_archive: bool = False, search: str = '') -> list[dict]:
+    def list_plans(project_id: int, is_archive: bool = False, search: str = "") -> list[dict]:
         """List test plans in a project.
 
         Args:
@@ -25,13 +24,13 @@ def register(mcp: FastMCP):
 
         return [
             {
-                'id': p.id,
-                'name': p.name,
-                'started_at': p.started_at.isoformat() if p.started_at else None,
-                'due_date': p.due_date.isoformat() if p.due_date else None,
-                'finished_at': p.finished_at.isoformat() if p.finished_at else None,
-                'is_archive': p.is_archive,
-                'parent_id': p.parent_id,
+                "id": p.id,
+                "name": p.name,
+                "started_at": p.started_at.isoformat() if p.started_at else None,
+                "due_date": p.due_date.isoformat() if p.due_date else None,
+                "finished_at": p.finished_at.isoformat() if p.finished_at else None,
+                "is_archive": p.is_archive,
+                "parent_id": p.parent_id,
             }
             for p in qs[:100]
         ]
@@ -43,8 +42,8 @@ def register(mcp: FastMCP):
         Args:
             plan_id: Test plan ID
         """
-        from testy.tests_representation.models import TestPlan, Test, ResultStatus
         from django.db.models import Count
+        from testy.tests_representation.models import Test, TestPlan
 
         plan = TestPlan.objects.get(id=plan_id, is_deleted=False)
 
@@ -52,27 +51,26 @@ def register(mcp: FastMCP):
         total = tests.count()
 
         status_counts = (
-            tests
-            .filter(last_status__isnull=False)
-            .values('last_status__name')
-            .annotate(count=Count('id'))
+            tests.filter(last_status__isnull=False)
+            .values("last_status__name")
+            .annotate(count=Count("id"))
         )
-        stats = {item['last_status__name']: item['count'] for item in status_counts}
+        stats = {item["last_status__name"]: item["count"] for item in status_counts}
 
         untested = total - sum(stats.values())
         if untested > 0:
-            stats['Untested'] = untested
+            stats["Untested"] = untested
 
         return {
-            'id': plan.id,
-            'name': plan.name,
-            'description': plan.description,
-            'started_at': plan.started_at.isoformat() if plan.started_at else None,
-            'due_date': plan.due_date.isoformat() if plan.due_date else None,
-            'finished_at': plan.finished_at.isoformat() if plan.finished_at else None,
-            'is_archive': plan.is_archive,
-            'statistics': stats,
-            'total_tests': total,
+            "id": plan.id,
+            "name": plan.name,
+            "description": plan.description,
+            "started_at": plan.started_at.isoformat() if plan.started_at else None,
+            "due_date": plan.due_date.isoformat() if plan.due_date else None,
+            "finished_at": plan.finished_at.isoformat() if plan.finished_at else None,
+            "is_archive": plan.is_archive,
+            "statistics": stats,
+            "total_tests": total,
         }
 
     @mcp.tool()
@@ -81,7 +79,7 @@ def register(mcp: FastMCP):
         name: str,
         started_at: str,
         due_date: str,
-        description: str = '',
+        description: str = "",
         parent_id: int | None = None,
         case_ids: list[int] | None = None,
     ) -> dict:
@@ -96,7 +94,7 @@ def register(mcp: FastMCP):
             parent_id: Parent plan ID
             case_ids: Test case IDs to add to the plan
         """
-        from testy.tests_representation.models import TestPlan, Test
+        from testy.tests_representation.models import Test, TestPlan
 
         with transaction.atomic():
             plan = TestPlan.objects.create(
@@ -119,9 +117,9 @@ def register(mcp: FastMCP):
                     tests_added += 1
 
         return {
-            'id': plan.id,
-            'name': plan.name,
-            'tests_added': tests_added,
+            "id": plan.id,
+            "name": plan.name,
+            "tests_added": tests_added,
         }
 
     @mcp.tool()
@@ -132,7 +130,7 @@ def register(mcp: FastMCP):
             plan_id: Test plan ID
             case_ids: Array of test case IDs to add
         """
-        from testy.tests_representation.models import TestPlan, Test
+        from testy.tests_representation.models import Test, TestPlan
 
         plan = TestPlan.objects.get(id=plan_id, is_deleted=False)
         created = []
@@ -144,11 +142,13 @@ def register(mcp: FastMCP):
                     case_id=case_id,
                     plan=plan,
                 )
-                created.append({
-                    'id': test.id,
-                    'case_id': test.case_id,
-                    'plan_id': test.plan_id,
-                })
+                created.append(
+                    {
+                        "id": test.id,
+                        "case_id": test.case_id,
+                        "plan_id": test.plan_id,
+                    }
+                )
 
         return created
 
@@ -156,7 +156,7 @@ def register(mcp: FastMCP):
     def list_tests(
         plan_id: int,
         status: str | None = None,
-        search: str = '',
+        search: str = "",
         limit: int = 50,
         offset: int = 0,
     ) -> dict:
@@ -171,27 +171,29 @@ def register(mcp: FastMCP):
         """
         from testy.tests_representation.models import Test
 
-        qs = Test.objects.filter(plan_id=plan_id, is_deleted=False).select_related('case', 'last_status', 'assignee')
+        qs = Test.objects.filter(plan_id=plan_id, is_deleted=False).select_related(
+            "case", "last_status", "assignee"
+        )
         if status:
             qs = qs.filter(last_status__name__iexact=status)
         if search:
             qs = qs.filter(case__name__icontains=search)
 
         total = qs.count()
-        tests = qs[offset:offset + limit]
+        tests = qs[offset : offset + limit]
 
         return {
-            'total': total,
-            'limit': limit,
-            'offset': offset,
-            'tests': [
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "tests": [
                 {
-                    'id': t.id,
-                    'case_id': t.case_id,
-                    'case_name': t.case.name,
-                    'assignee': t.assignee.username if t.assignee else None,
-                    'last_status': t.last_status.name if t.last_status else 'Untested',
-                    'results_count': t.results.count(),
+                    "id": t.id,
+                    "case_id": t.case_id,
+                    "case_name": t.case.name,
+                    "assignee": t.assignee.username if t.assignee else None,
+                    "last_status": t.last_status.name if t.last_status else "Untested",
+                    "results_count": t.results.count(),
                 }
                 for t in tests
             ],

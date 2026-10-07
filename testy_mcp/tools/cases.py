@@ -3,15 +3,15 @@ import logging
 from django.db import transaction
 from mcp.server.fastmcp import FastMCP
 
-logger = logging.getLogger('testy_mcp')
+logger = logging.getLogger("testy_mcp")
 
 MAX_BULK_CASES = 100
 
 
 def _attach_labels(case, label_ids: list[int]):
     """Attach labels to a test case via GenericForeignKey."""
-    from testy.core.models import LabeledItem
     from django.contrib.contenttypes.models import ContentType
+    from testy.core.models import LabeledItem
 
     ct = ContentType.objects.get_for_model(case)
     for label_id in label_ids:
@@ -24,8 +24,8 @@ def _attach_labels(case, label_ids: list[int]):
 
 def _sync_labels(case, label_ids: list[int]):
     """Replace labels on a test case."""
-    from testy.core.models import LabeledItem
     from django.contrib.contenttypes.models import ContentType
+    from testy.core.models import LabeledItem
 
     ct = ContentType.objects.get_for_model(case)
     LabeledItem.objects.filter(content_type=ct, object_id=case.id).delete()
@@ -38,12 +38,11 @@ def _sync_labels(case, label_ids: list[int]):
 
 
 def register(mcp: FastMCP):
-
     @mcp.tool()
     def list_cases(
         project_id: int,
         suite_id: int | None = None,
-        search: str = '',
+        search: str = "",
         limit: int = 50,
         offset: int = 0,
     ) -> dict:
@@ -56,9 +55,9 @@ def register(mcp: FastMCP):
             limit: Max records to return (default: 50)
             offset: Pagination offset
         """
-        from testy.tests_description.models import TestCase
-        from testy.core.models import LabeledItem
         from django.contrib.contenttypes.models import ContentType
+        from testy.core.models import LabeledItem
+        from testy.tests_description.models import TestCase
 
         qs = TestCase.objects.filter(project_id=project_id, is_deleted=False)
         if suite_id:
@@ -67,34 +66,31 @@ def register(mcp: FastMCP):
             qs = qs.filter(name__icontains=search)
 
         total = qs.count()
-        cases = list(qs.select_related('suite')[offset:offset + limit])
+        cases = list(qs.select_related("suite")[offset : offset + limit])
 
         ct = ContentType.objects.get_for_model(TestCase)
-        case_ids = [c.id for c in cases]
-        labeled = (
-            LabeledItem.objects
-            .filter(content_type=ct, object_id__in=case_ids, is_deleted=False)
-            .select_related('label')
-        )
+        labeled = LabeledItem.objects.filter(
+            content_type=ct, object_id__in=[c.id for c in cases], is_deleted=False
+        ).select_related("label")
         labels_by_case = {}
         for li in labeled:
             labels_by_case.setdefault(li.object_id, []).append(
-                {'id': li.label_id, 'name': li.label.name}
+                {"id": li.label_id, "name": li.label.name}
             )
 
         return {
-            'total': total,
-            'limit': limit,
-            'offset': offset,
-            'cases': [
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "cases": [
                 {
-                    'id': c.id,
-                    'name': c.name,
-                    'suite_id': c.suite_id,
-                    'suite_name': c.suite.name,
-                    'is_steps': c.is_steps,
-                    'estimate': c.estimate,
-                    'labels': labels_by_case.get(c.id, []),
+                    "id": c.id,
+                    "name": c.name,
+                    "suite_id": c.suite_id,
+                    "suite_name": c.suite.name,
+                    "is_steps": c.is_steps,
+                    "estimate": c.estimate,
+                    "labels": labels_by_case.get(c.id, []),
                 }
                 for c in cases
             ],
@@ -109,35 +105,41 @@ def register(mcp: FastMCP):
         """
         from testy.tests_description.models import TestCase
 
-        c = TestCase.objects.select_related('suite').get(id=case_id, is_deleted=False)
+        c = TestCase.objects.select_related("suite").get(id=case_id, is_deleted=False)
 
         labels = []
-        for li in c.labeled_items.select_related('label').all():
-            if hasattr(li, 'label') and li.label:
-                labels.append({'id': li.label.id, 'name': li.label.name})
+        for li in c.labeled_items.select_related("label").all():
+            if hasattr(li, "label") and li.label:
+                labels.append({"id": li.label.id, "name": li.label.name})
 
         steps = []
         if c.is_steps:
             steps = [
-                {'id': s.id, 'name': s.name, 'scenario': s.scenario, 'expected': s.expected, 'sort_order': s.sort_order}
-                for s in c.steps.filter(is_deleted=False).order_by('sort_order', 'id')
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "scenario": s.scenario,
+                    "expected": s.expected,
+                    "sort_order": s.sort_order,
+                }
+                for s in c.steps.filter(is_deleted=False).order_by("sort_order", "id")
             ]
 
         return {
-            'id': c.id,
-            'name': c.name,
-            'suite': {'id': c.suite_id, 'name': c.suite.name},
-            'setup': c.setup,
-            'scenario': c.scenario,
-            'expected': c.expected,
-            'teardown': c.teardown,
-            'description': c.description,
-            'estimate': c.estimate,
-            'is_steps': c.is_steps,
-            'labels': labels,
-            'steps': steps,
-            'created_at': c.created_at.isoformat() if c.created_at else None,
-            'updated_at': c.updated_at.isoformat() if c.updated_at else None,
+            "id": c.id,
+            "name": c.name,
+            "suite": {"id": c.suite_id, "name": c.suite.name},
+            "setup": c.setup,
+            "scenario": c.scenario,
+            "expected": c.expected,
+            "teardown": c.teardown,
+            "description": c.description,
+            "estimate": c.estimate,
+            "is_steps": c.is_steps,
+            "labels": labels,
+            "steps": steps,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         }
 
     @mcp.tool()
@@ -145,11 +147,11 @@ def register(mcp: FastMCP):
         project_id: int,
         suite_id: int,
         name: str,
-        scenario: str = '',
-        expected: str = '',
-        setup: str = '',
-        teardown: str = '',
-        description: str = '',
+        scenario: str = "",
+        expected: str = "",
+        setup: str = "",
+        teardown: str = "",
+        description: str = "",
         estimate: int | None = None,
         steps: list[dict] | None = None,
         label_ids: list[int] | None = None,
@@ -166,8 +168,11 @@ def register(mcp: FastMCP):
             teardown: Postconditions
             description: Description
             estimate: Estimated execution time (minutes)
-            steps: Array of steps for multi-step mode. Each: {"name": str, "scenario": str, "expected": str}. When provided, the case uses step-based format instead of single scenario.
-            label_ids: Array of label IDs to attach to the case. Use list_labels to get available IDs.
+            steps: Array of steps for multi-step mode. Each:
+                   {"name": str, "scenario": str, "expected": str}.
+                   When provided, uses step-based format instead of single scenario.
+            label_ids: Array of label IDs to attach to the case.
+                       Use list_labels to get available IDs.
         """
         from testy.tests_description.models import TestCase, TestCaseStep
 
@@ -177,8 +182,8 @@ def register(mcp: FastMCP):
                 project_id=project_id,
                 suite_id=suite_id,
                 name=name,
-                scenario='' if is_steps else scenario,
-                expected='' if is_steps else expected,
+                scenario="" if is_steps else scenario,
+                expected="" if is_steps else expected,
                 setup=setup,
                 teardown=teardown,
                 description=description,
@@ -190,52 +195,59 @@ def register(mcp: FastMCP):
                     TestCaseStep.objects.create(
                         project_id=project_id,
                         test_case=case,
-                        name=step.get('name', f'Step {i + 1}'),
-                        scenario=step.get('scenario', ''),
-                        expected=step.get('expected', ''),
+                        name=step.get("name", f"Step {i + 1}"),
+                        scenario=step.get("scenario", ""),
+                        expected=step.get("expected", ""),
                         sort_order=i,
                     )
             if label_ids:
                 _attach_labels(case, label_ids)
 
         return {
-            'id': case.id,
-            'name': case.name,
-            'suite_id': case.suite_id,
-            'is_steps': case.is_steps,
+            "id": case.id,
+            "name": case.name,
+            "suite_id": case.suite_id,
+            "is_steps": case.is_steps,
         }
 
     @mcp.tool()
     def create_cases_bulk(project_id: int, suite_id: int, cases: list[dict]) -> list[dict]:
-        """Create multiple test cases in one atomic operation. Key tool for AI-driven test generation.
+        """Create multiple test cases in one atomic operation.
+
+        Key tool for AI-driven test generation.
 
         Args:
             project_id: Project ID
             suite_id: Suite ID to place cases in
-            cases: Array of test cases. Each: {"name": str, "scenario": str, "expected": str, "setup": str, "teardown": str, "description": str, "estimate": int, "steps": [{"name": str, "scenario": str, "expected": str}], "label_ids": [int]}. When "steps" is provided, the case uses step-based format. "label_ids" attaches labels.
+            cases: Array of test cases. Each: {"name": str, "scenario": str,
+                   "expected": str, "setup": str, "teardown": str, "description": str,
+                   "estimate": int, "steps": [{"name": str, "scenario": str,
+                   "expected": str}], "label_ids": [int]}.
+                   When "steps" is provided, the case uses step-based format.
+                   "label_ids" attaches labels.
 
         Maximum 100 cases per call.
         """
         from testy.tests_description.models import TestCase, TestCaseStep
 
         if len(cases) > MAX_BULK_CASES:
-            raise ValueError(f'Maximum {MAX_BULK_CASES} cases per call, got {len(cases)}')
+            raise ValueError(f"Maximum {MAX_BULK_CASES} cases per call, got {len(cases)}")
 
         created = []
         with transaction.atomic():
             for case_data in cases:
-                steps_data = case_data.get('steps')
+                steps_data = case_data.get("steps")
                 is_steps = bool(steps_data)
                 case = TestCase.objects.create(
                     project_id=project_id,
                     suite_id=suite_id,
-                    name=case_data['name'],
-                    scenario='' if is_steps else case_data.get('scenario', ''),
-                    expected='' if is_steps else case_data.get('expected', ''),
-                    setup=case_data.get('setup', ''),
-                    teardown=case_data.get('teardown', ''),
-                    description=case_data.get('description', ''),
-                    estimate=case_data.get('estimate'),
+                    name=case_data["name"],
+                    scenario="" if is_steps else case_data.get("scenario", ""),
+                    expected="" if is_steps else case_data.get("expected", ""),
+                    setup=case_data.get("setup", ""),
+                    teardown=case_data.get("teardown", ""),
+                    description=case_data.get("description", ""),
+                    estimate=case_data.get("estimate"),
                     is_steps=is_steps,
                 )
                 if is_steps:
@@ -243,15 +255,15 @@ def register(mcp: FastMCP):
                         TestCaseStep.objects.create(
                             project_id=project_id,
                             test_case=case,
-                            name=step.get('name', f'Step {i + 1}'),
-                            scenario=step.get('scenario', ''),
-                            expected=step.get('expected', ''),
+                            name=step.get("name", f"Step {i + 1}"),
+                            scenario=step.get("scenario", ""),
+                            expected=step.get("expected", ""),
                             sort_order=i,
                         )
-                case_label_ids = case_data.get('label_ids')
+                case_label_ids = case_data.get("label_ids")
                 if case_label_ids:
                     _attach_labels(case, case_label_ids)
-                created.append({'id': case.id, 'name': case.name, 'is_steps': is_steps})
+                created.append({"id": case.id, "name": case.name, "is_steps": is_steps})
 
         return created
 
@@ -281,16 +293,24 @@ def register(mcp: FastMCP):
             teardown: New postconditions
             description: New description
             estimate: New time estimate (minutes)
-            steps: Replace steps with new ones. Each: {"name": str, "scenario": str, "expected": str}. Pass empty list [] to switch to simple mode.
-            label_ids: Replace labels. Pass array of label IDs. Pass empty list [] to remove all labels.
+            steps: Replace steps with new ones. Each:
+                   {"name": str, "scenario": str, "expected": str}.
+                   Pass empty list [] to switch to simple mode.
+            label_ids: Replace labels. Pass array of label IDs.
+                       Pass empty list [] to remove all labels.
         """
         from testy.tests_description.models import TestCase, TestCaseStep
 
         case = TestCase.objects.get(id=case_id, is_deleted=False)
         fields = {
-            'name': name, 'suite_id': suite_id, 'scenario': scenario,
-            'expected': expected, 'setup': setup, 'teardown': teardown,
-            'description': description, 'estimate': estimate,
+            "name": name,
+            "suite_id": suite_id,
+            "scenario": scenario,
+            "expected": expected,
+            "setup": setup,
+            "teardown": teardown,
+            "description": description,
+            "estimate": estimate,
         }
         for field, value in fields.items():
             if value is not None:
@@ -301,15 +321,15 @@ def register(mcp: FastMCP):
                 case.steps.filter(is_deleted=False).update(is_deleted=True)
                 if steps:
                     case.is_steps = True
-                    case.scenario = ''
-                    case.expected = ''
+                    case.scenario = ""
+                    case.expected = ""
                     for i, step in enumerate(steps):
                         TestCaseStep.objects.create(
                             project_id=case.project_id,
                             test_case=case,
-                            name=step.get('name', f'Step {i + 1}'),
-                            scenario=step.get('scenario', ''),
-                            expected=step.get('expected', ''),
+                            name=step.get("name", f"Step {i + 1}"),
+                            scenario=step.get("scenario", ""),
+                            expected=step.get("expected", ""),
                             sort_order=i,
                         )
                 else:
@@ -318,7 +338,12 @@ def register(mcp: FastMCP):
                 _sync_labels(case, label_ids)
             case.save()
 
-        return {'id': case.id, 'name': case.name, 'suite_id': case.suite_id, 'is_steps': case.is_steps}
+        return {
+            "id": case.id,
+            "name": case.name,
+            "suite_id": case.suite_id,
+            "is_steps": case.is_steps,
+        }
 
     @mcp.tool()
     def delete_case(case_id: int) -> dict:
@@ -332,4 +357,4 @@ def register(mcp: FastMCP):
         case = TestCase.objects.get(id=case_id, is_deleted=False)
         case.is_deleted = True
         case.save()
-        return {'deleted': True, 'id': case_id}
+        return {"deleted": True, "id": case_id}

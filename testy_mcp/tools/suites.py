@@ -3,13 +3,12 @@ import logging
 from django.db import transaction
 from mcp.server.fastmcp import FastMCP
 
-logger = logging.getLogger('testy_mcp')
+logger = logging.getLogger("testy_mcp")
 
 
 def register(mcp: FastMCP):
-
     @mcp.tool()
-    def list_suites(project_id: int, tree_view: bool = True, search: str = '') -> list[dict]:
+    def list_suites(project_id: int, tree_view: bool = True, search: str = "") -> list[dict]:
         """List test suites in a project.
 
         Args:
@@ -23,7 +22,7 @@ def register(mcp: FastMCP):
         if search:
             qs = qs.filter(name__icontains=search)
 
-        suites = list(qs.values('id', 'name', 'description', 'parent_id'))
+        suites = list(qs.values("id", "name", "description", "parent_id"))
 
         if not tree_view:
             return suites
@@ -31,7 +30,9 @@ def register(mcp: FastMCP):
         return _build_tree(suites)
 
     @mcp.tool()
-    def create_suite(project_id: int, name: str, description: str = '', parent_id: int | None = None) -> dict:
+    def create_suite(
+        project_id: int, name: str, description: str = "", parent_id: int | None = None
+    ) -> dict:
         """Create a test suite.
 
         Args:
@@ -48,7 +49,12 @@ def register(mcp: FastMCP):
             description=description,
             parent_id=parent_id,
         )
-        return {'id': suite.id, 'name': suite.name, 'description': suite.description, 'parent_id': suite.parent_id}
+        return {
+            "id": suite.id,
+            "name": suite.name,
+            "description": suite.description,
+            "parent_id": suite.parent_id,
+        }
 
     @mcp.tool()
     def create_suites_bulk(project_id: int, suites: list[dict]) -> list[dict]:
@@ -56,10 +62,9 @@ def register(mcp: FastMCP):
 
         Args:
             project_id: Project ID
-            suites: Array of suites. Each suite: {"name": str, "description": str, "children": [...]}
+            suites: Array of suites. Each suite:
+                    {"name": str, "description": str, "children": [...]}
         """
-        from testy.tests_description.models import TestSuite
-
         created = []
         with transaction.atomic():
             for suite_data in suites:
@@ -67,7 +72,12 @@ def register(mcp: FastMCP):
         return created
 
     @mcp.tool()
-    def update_suite(suite_id: int, name: str | None = None, description: str | None = None, parent_id: int | None = None) -> dict:
+    def update_suite(
+        suite_id: int,
+        name: str | None = None,
+        description: str | None = None,
+        parent_id: int | None = None,
+    ) -> dict:
         """Update a test suite.
 
         Args:
@@ -86,7 +96,12 @@ def register(mcp: FastMCP):
         if parent_id is not None:
             suite.parent_id = parent_id
         suite.save()
-        return {'id': suite.id, 'name': suite.name, 'description': suite.description, 'parent_id': suite.parent_id}
+        return {
+            "id": suite.id,
+            "name": suite.name,
+            "description": suite.description,
+            "parent_id": suite.parent_id,
+        }
 
     @mcp.tool()
     def delete_suite(suite_id: int) -> dict:
@@ -100,7 +115,7 @@ def register(mcp: FastMCP):
         suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
         suite.is_deleted = True
         suite.save()
-        return {'deleted': True, 'id': suite_id}
+        return {"deleted": True, "id": suite_id}
 
 
 def _create_suite_recursive(project_id: int, data: dict, parent_id: int | None) -> list[dict]:
@@ -108,25 +123,25 @@ def _create_suite_recursive(project_id: int, data: dict, parent_id: int | None) 
 
     suite = TestSuite.objects.create(
         project_id=project_id,
-        name=data['name'],
-        description=data.get('description', ''),
+        name=data["name"],
+        description=data.get("description", ""),
         parent_id=parent_id,
     )
-    result = [{'id': suite.id, 'name': suite.name, 'parent_id': suite.parent_id}]
+    result = [{"id": suite.id, "name": suite.name, "parent_id": suite.parent_id}]
 
-    for child in data.get('children', []):
+    for child in data.get("children", []):
         result.extend(_create_suite_recursive(project_id, child, parent_id=suite.id))
 
     return result
 
 
 def _build_tree(suites: list[dict]) -> list[dict]:
-    by_id = {s['id']: {**s, 'children': []} for s in suites}
+    by_id = {s["id"]: {**s, "children": []} for s in suites}
     roots = []
     for s in by_id.values():
-        parent = s.get('parent_id')
+        parent = s.get("parent_id")
         if parent and parent in by_id:
-            by_id[parent]['children'].append(s)
+            by_id[parent]["children"].append(s)
         else:
             roots.append(s)
     return roots

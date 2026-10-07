@@ -1,6 +1,6 @@
 import contextvars
 
-_current_user: contextvars.ContextVar = contextvars.ContextVar('current_user', default=None)
+_current_user: contextvars.ContextVar = contextvars.ContextVar("current_user", default=None)
 
 
 def set_current_user(user):

@@ -3,16 +3,16 @@ import logging
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 from testy_mcp.auth import get_user_from_request
 
-logger = logging.getLogger('testy_mcp')
+logger = logging.getLogger("testy_mcp")
 
-MCP_PROTOCOL_VERSION = '2025-03-26'
-SUPPORTED_MCP_PROTOCOL_VERSIONS = {'2025-06-18', '2025-03-26', '2024-11-05'}
+MCP_PROTOCOL_VERSION = "2025-03-26"
+SUPPORTED_MCP_PROTOCOL_VERSIONS = {"2025-06-18", "2025-03-26", "2024-11-05"}
 
 
 class JsonRpcError(Exception):
@@ -22,7 +22,7 @@ class JsonRpcError(Exception):
         super().__init__(message)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_exempt, name="dispatch")
 class McpHttpView(View):
     """MCP server endpoint using FastMCP public API (async).
 
@@ -34,7 +34,7 @@ class McpHttpView(View):
         user = await sync_to_async(get_user_from_request)(request)
         if user is None:
             return JsonResponse(
-                {'error': 'Authentication required'},
+                {"error": "Authentication required"},
                 status=401,
             )
         request.user = user
@@ -42,24 +42,25 @@ class McpHttpView(View):
         try:
             body = json.loads(request.body)
         except (json.JSONDecodeError, ValueError):
-            return self._error_response(-32700, 'Parse error', None)
+            return self._error_response(-32700, "Parse error", None)
 
         if not isinstance(body, dict):
-            return self._error_response(-32600, 'Invalid Request', None)
+            return self._error_response(-32600, "Invalid Request", None)
 
-        method = body.get('method')
-        params = body.get('params', {})
-        req_id = body.get('id')
-        is_notification = 'id' not in body
+        method = body.get("method")
+        params = body.get("params", {})
+        req_id = body.get("id")
+        is_notification = "id" not in body
 
         if not isinstance(method, str):
-            return self._error_response(-32600, 'Invalid Request', req_id)
+            return self._error_response(-32600, "Invalid Request", req_id)
         if not isinstance(params, dict):
-            return self._error_response(-32602, 'Invalid params', req_id)
+            return self._error_response(-32602, "Invalid params", req_id)
 
-        from testy_mcp.server import mcp
-        from testy_mcp.context import set_current_user
         from simple_history.models import HistoricalRecords
+
+        from testy_mcp.context import set_current_user
+        from testy_mcp.server import mcp
 
         set_current_user(user)
         HistoricalRecords.context.request = request
@@ -75,10 +76,10 @@ class McpHttpView(View):
                     return self._error_response(exc.code, exc.message, None, status=400)
                 return self._error_response(exc.code, exc.message, req_id)
             except Exception:
-                logger.exception('MCP request handling error for method: %s', method)
+                logger.exception("MCP request handling error for method: %s", method)
                 if is_notification:
-                    return self._error_response(-32603, 'Internal error', None, status=500)
-                return self._error_response(-32603, 'Internal error', req_id)
+                    return self._error_response(-32603, "Internal error", None, status=500)
+                return self._error_response(-32603, "Internal error", req_id)
         finally:
             set_current_user(None)
             try:
@@ -88,89 +89,99 @@ class McpHttpView(View):
 
     async def _dispatch(self, mcp_server, method: str, params: dict):
         """Route JSON-RPC method to the appropriate FastMCP handler."""
-        if method == 'initialize':
-            requested_version = params.get('protocolVersion')
+        if method == "initialize":
+            requested_version = params.get("protocolVersion")
             protocol_version = (
                 requested_version
                 if requested_version in SUPPORTED_MCP_PROTOCOL_VERSIONS
                 else MCP_PROTOCOL_VERSION
             )
             return {
-                'protocolVersion': protocol_version,
-                'capabilities': {
-                    'tools': {'listChanged': False},
-                    'resources': {'subscribe': False, 'listChanged': False},
-                    'prompts': {'listChanged': False},
+                "protocolVersion": protocol_version,
+                "capabilities": {
+                    "tools": {"listChanged": False},
+                    "resources": {"subscribe": False, "listChanged": False},
+                    "prompts": {"listChanged": False},
                 },
-                'serverInfo': {
-                    'name': mcp_server.name,
-                    'version': '1.0.0',
+                "serverInfo": {
+                    "name": mcp_server.name,
+                    "version": "1.0.0",
                 },
             }
 
-        if method == 'tools/list':
+        if method == "tools/list":
             tools = await mcp_server.list_tools()
             return {
-                'tools': [
+                "tools": [
                     {
-                        'name': t.name,
-                        'description': t.description or '',
-                        'inputSchema': t.inputSchema if isinstance(t.inputSchema, dict) else (t.inputSchema.model_dump() if hasattr(t.inputSchema, 'model_dump') else {}),
+                        "name": t.name,
+                        "description": t.description or "",
+                        "inputSchema": t.inputSchema
+                        if isinstance(t.inputSchema, dict)
+                        else (
+                            t.inputSchema.model_dump()
+                            if hasattr(t.inputSchema, "model_dump")
+                            else {}
+                        ),
                     }
                     for t in tools
                 ],
             }
 
-        if method == 'tools/call':
-            name = params.get('name', '')
-            arguments = params.get('arguments', {})
+        if method == "tools/call":
+            name = params.get("name", "")
+            arguments = params.get("arguments", {})
             tool = mcp_server._tool_manager._tools.get(name)
             if tool is None:
-                raise JsonRpcError(-32602, f'Unknown tool: {name}')
+                raise JsonRpcError(-32602, f"Unknown tool: {name}")
             raw_result = await sync_to_async(tool.fn)(**arguments)
             if isinstance(raw_result, str):
                 text = raw_result
             else:
                 text = json.dumps(raw_result, ensure_ascii=False, default=str)
-            return {'content': [{'type': 'text', 'text': text}]}
+            return {"content": [{"type": "text", "text": text}]}
 
-        if method == 'resources/list':
+        if method == "resources/list":
             resources = await mcp_server.list_resources()
             return {
-                'resources': [
+                "resources": [
                     {
-                        'uri': str(r.uri),
-                        'name': r.name or '',
-                        'description': r.description or '',
-                        'mimeType': r.mimeType or 'text/plain',
+                        "uri": str(r.uri),
+                        "name": r.name or "",
+                        "description": r.description or "",
+                        "mimeType": r.mimeType or "text/plain",
                     }
                     for r in resources
                 ],
             }
 
-        if method == 'resources/read':
-            uri = params.get('uri', '')
+        if method == "resources/read":
+            uri = params.get("uri", "")
             contents = await mcp_server.read_resource(uri)
             return {
-                'contents': [
+                "contents": [
                     {
-                        'uri': str(c.uri) if hasattr(c, 'uri') else uri,
-                        'text': c.text if hasattr(c, 'text') else str(c),
-                        'mimeType': c.mime_type if hasattr(c, 'mime_type') else 'text/plain',
+                        "uri": str(c.uri) if hasattr(c, "uri") else uri,
+                        "text": c.text if hasattr(c, "text") else str(c),
+                        "mimeType": c.mime_type if hasattr(c, "mime_type") else "text/plain",
                     }
                     for c in contents
                 ],
             }
 
-        if method == 'prompts/list':
+        if method == "prompts/list":
             prompts = await mcp_server.list_prompts()
             return {
-                'prompts': [
+                "prompts": [
                     {
-                        'name': p.name,
-                        'description': p.description or '',
-                        'arguments': [
-                            {'name': a.name, 'description': a.description or '', 'required': a.required}
+                        "name": p.name,
+                        "description": p.description or "",
+                        "arguments": [
+                            {
+                                "name": a.name,
+                                "description": a.description or "",
+                                "required": a.required,
+                            }
                             for a in (p.arguments or [])
                         ],
                     }
@@ -178,43 +189,47 @@ class McpHttpView(View):
                 ],
             }
 
-        if method == 'prompts/get':
-            name = params.get('name', '')
-            arguments = params.get('arguments', {})
+        if method == "prompts/get":
+            name = params.get("name", "")
+            arguments = params.get("arguments", {})
             result = await mcp_server.get_prompt(name, arguments)
             return {
-                'description': result.description or '',
-                'messages': [
+                "description": result.description or "",
+                "messages": [
                     {
-                        'role': m.role,
-                        'content': m.content.model_dump() if hasattr(m.content, 'model_dump') else {'type': 'text', 'text': str(m.content)},
+                        "role": m.role,
+                        "content": m.content.model_dump()
+                        if hasattr(m.content, "model_dump")
+                        else {"type": "text", "text": str(m.content)},
                     }
                     for m in result.messages
                 ],
             }
 
-        if method == 'ping':
+        if method == "ping":
             return {}
 
-        if method == 'notifications/initialized':
+        if method == "notifications/initialized":
             return None
 
-        raise JsonRpcError(-32601, f'Method not found: {method}')
+        raise JsonRpcError(-32601, f"Method not found: {method}")
 
     def _success_response(self, req_id, result) -> JsonResponse:
         if result is None:
             return JsonResponse(
-                {'jsonrpc': '2.0', 'result': {}, 'id': req_id},
+                {"jsonrpc": "2.0", "result": {}, "id": req_id},
             )
         return JsonResponse(
-            {'jsonrpc': '2.0', 'result': result, 'id': req_id},
+            {"jsonrpc": "2.0", "result": result, "id": req_id},
         )
 
-    def _error_response(self, code: int, message: str, req_id, status: int | None = None) -> JsonResponse:
+    def _error_response(
+        self, code: int, message: str, req_id, status: int | None = None
+    ) -> JsonResponse:
         if status is None:
             status = 400 if code in {-32700, -32600, -32602} else 200
         return JsonResponse(
-            {'jsonrpc': '2.0', 'error': {'code': code, 'message': message}, 'id': req_id},
+            {"jsonrpc": "2.0", "error": {"code": code, "message": message}, "id": req_id},
             status=status,
         )
 

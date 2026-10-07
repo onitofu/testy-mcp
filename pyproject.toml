@@ -8,9 +8,17 @@ version = "1.0.0"
 description = "MCP (Model Context Protocol) server plugin for TestY TMS"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.0",
+    "mcp>=1.0,<2",
     "django-oauth-toolkit>=2.0",
     "uvicorn<0.36",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black==23.3.0",
+    "isort==5.12.0",
+    "flake8==6.0.0",
+    "pre-commit==3.3.3",
 ]
 
 [project.entry-points.testy]
@@ -18,3 +26,26 @@ testy-mcp = "testy_mcp"
 
 [tool.setuptools.packages.find]
 include = ["testy_mcp*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100

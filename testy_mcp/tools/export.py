@@ -2,15 +2,19 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from testy_mcp.formatters import format_suite_markdown, format_suite_json, format_plan_results_markdown, format_plan_results_json
+from testy_mcp.formatters import (
+    format_plan_results_json,
+    format_plan_results_markdown,
+    format_suite_json,
+    format_suite_markdown,
+)
 
-logger = logging.getLogger('testy_mcp')
+logger = logging.getLogger("testy_mcp")
 
 
 def register(mcp: FastMCP):
-
     @mcp.tool()
-    def export_suite(suite_id: int, include_children: bool = True, format: str = 'markdown') -> str:
+    def export_suite(suite_id: int, include_children: bool = True, format: str = "markdown") -> str:
         """Export all test cases in a suite in LLM-friendly format.
 
         Args:
@@ -18,18 +22,11 @@ def register(mcp: FastMCP):
             include_children: Include nested suites (default: True)
             format: "markdown" (default) or "json"
         """
-        from testy.tests_description.models import TestSuite, TestCase
+        from testy.tests_description.models import TestCase, TestSuite
 
         suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
 
         if include_children:
-            suite_ids = list(
-                TestSuite.objects.filter(
-                    project=suite.project,
-                    is_deleted=False,
-                ).values_list('id', flat=True)
-            )
-            # Filter to only descendants of this suite using parent chain
             all_suites = list(TestSuite.objects.filter(project=suite.project, is_deleted=False))
             descendant_ids = _get_descendant_ids(suite.id, all_suites)
             descendant_ids.add(suite.id)
@@ -37,14 +34,18 @@ def register(mcp: FastMCP):
             descendant_ids = {suite.id}
 
         suites = TestSuite.objects.filter(id__in=descendant_ids, is_deleted=False)
-        cases = TestCase.objects.filter(suite_id__in=descendant_ids, is_deleted=False).select_related('suite')
+        cases = TestCase.objects.filter(
+            suite_id__in=descendant_ids, is_deleted=False
+        ).select_related("suite")
 
-        if format == 'json':
+        if format == "json":
             return format_suite_json(suite, suites, cases)
         return format_suite_markdown(suite, suites, cases)
 
     @mcp.tool()
-    def export_plan_results(plan_id: int, status: str | None = None, format: str = 'markdown') -> str:
+    def export_plan_results(
+        plan_id: int, status: str | None = None, format: str = "markdown"
+    ) -> str:
         """Export test plan results for AI analysis.
 
         Args:
@@ -52,35 +53,37 @@ def register(mcp: FastMCP):
             status: Filter by status name (e.g. "Failed" to see only failures)
             format: "markdown" (default) or "json"
         """
-        from testy.tests_representation.models import TestPlan, Test, TestResult
         from django.db.models import Count
+        from testy.tests_representation.models import Test, TestPlan
 
         plan = TestPlan.objects.get(id=plan_id, is_deleted=False)
-        tests = Test.objects.filter(plan=plan, is_deleted=False).select_related('case', 'last_status', 'assignee')
+        tests = Test.objects.filter(plan=plan, is_deleted=False).select_related(
+            "case", "last_status", "assignee"
+        )
 
         if status:
             tests = tests.filter(last_status__name__iexact=status)
 
-        # Get latest result for each test
         test_results = []
         for test in tests:
-            latest_result = test.results.select_related('status', 'user').order_by('-created_at').first()
+            latest_result = (
+                test.results.select_related("status", "user").order_by("-created_at").first()
+            )
             test_results.append((test, latest_result))
 
-        # Overall stats
         all_tests = Test.objects.filter(plan=plan, is_deleted=False)
         stats = dict(
             all_tests.filter(last_status__isnull=False)
-            .values_list('last_status__name')
-            .annotate(count=Count('id'))
-            .values_list('last_status__name', 'count')
+            .values_list("last_status__name")
+            .annotate(count=Count("id"))
+            .values_list("last_status__name", "count")
         )
         total = all_tests.count()
         untested = total - sum(stats.values())
         if untested > 0:
-            stats['Untested'] = untested
+            stats["Untested"] = untested
 
-        if format == 'json':
+        if format == "json":
             return format_plan_results_json(plan, test_results, stats, total)
         return format_plan_results_markdown(plan, test_results, stats, total)
 
