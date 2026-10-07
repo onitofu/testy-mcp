@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 
@@ -9,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from testy_mcp.auth import RequestAuthenticator
 from testy_mcp.json_rpc_error import JsonRpcError
+from testy_mcp.oauth import OAuthMetadata
 
 logger = logging.getLogger("testy_mcp")
 MCP_PROTOCOL_VERSION = "2025-03-26"
@@ -24,9 +26,17 @@ class McpHttpView(View):
     """
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        user = await sync_to_async(RequestAuthenticator.authenticate)(request)
+        try:
+            user = await sync_to_async(RequestAuthenticator.authenticate)(request)
+        except Exception:
+            logger.exception("MCP authentication error")
+            return self._error_response(-32603, "Internal error", None, status=500)
         if user is None:
-            return JsonResponse({"error": "Authentication required"}, status=401)
+            return JsonResponse(
+                {"error": "Authentication required"},
+                status=401,
+                headers={"WWW-Authenticate": OAuthMetadata.authenticate_header(request)},
+            )
         request.user = user
         try:
             body = json.loads(request.body)
@@ -136,9 +146,18 @@ class McpHttpView(View):
             return {
                 "contents": [
                     {
-                        "uri": str(c.uri) if hasattr(c, "uri") else uri,
-                        "text": c.text if hasattr(c, "text") else str(c),
-                        "mimeType": c.mime_type if hasattr(c, "mime_type") else "text/plain",
+                        "uri": uri,
+                        "mimeType": c.mime_type
+                        or (
+                            "application/octet-stream"
+                            if isinstance(c.content, bytes)
+                            else "text/plain"
+                        ),
+                        **(
+                            {"blob": base64.b64encode(c.content).decode("ascii")}
+                            if isinstance(c.content, bytes)
+                            else {"text": c.content}
+                        ),
                     }
                     for c in contents
                 ]

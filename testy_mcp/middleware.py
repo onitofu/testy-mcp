@@ -7,12 +7,7 @@ from testy_mcp.oauth import OAuthMetadata
 
 
 class OAuthWellKnownMiddleware:
-    """Serve OAuth metadata and handle Dynamic Client Registration.
-
-    MCP clients (Claude Code, Cursor) need:
-    1. OAuth metadata at /.well-known/oauth-authorization-server (root level)
-    2. Dynamic Client Registration (RFC 7591) at /plugins/mcp/oauth/register/
-    """
+    """Serve OAuth discovery metadata and handle Dynamic Client Registration."""
 
     WELL_KNOWN_PATH = "/.well-known/oauth-authorization-server"
     REGISTER_PATH = "/plugins/mcp/oauth/register/"
@@ -21,6 +16,12 @@ class OAuthWellKnownMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if request.path == OAuthMetadata.PROTECTED_RESOURCE_METADATA_PATH:
+            if request.method != "GET":
+                return JsonResponse(
+                    {"error": "Method not allowed"}, status=405, headers={"Allow": "GET"}
+                )
+            return JsonResponse(OAuthMetadata.build_protected_resource(request))
         if request.path == self.WELL_KNOWN_PATH:
             return self._oauth_metadata(request)
         if request.path == self.REGISTER_PATH and request.method == "POST":

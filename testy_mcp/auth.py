@@ -24,15 +24,12 @@ class RequestAuthenticator:
     @classmethod
     def _authenticate_oauth(cls, request: HttpRequest):
         """Authenticate via OAuth 2.0 Bearer token."""
-        try:
-            from oauth2_provider.contrib.rest_framework import OAuth2Authentication
+        from oauth2_provider.contrib.rest_framework import OAuth2Authentication
 
-            auth = OAuth2Authentication()
-            result = auth.authenticate(request)
-            if result:
-                return result[0]
-        except Exception:
-            pass
+        auth = OAuth2Authentication()
+        result = auth.authenticate(request)
+        if result:
+            return result[0]
         return None
 
     @classmethod
@@ -42,14 +39,15 @@ class RequestAuthenticator:
         if not auth_header.startswith("Token "):
             return None
         token_key = auth_header[6:].strip()
+        from django.utils import timezone
+        from testy.root.auth.models import TTLToken
+
         try:
-            from testy.root.auth.models import TTLToken
-
             token = TTLToken.objects.select_related("user").get(key=token_key)
-            from django.utils import timezone
-
-            if token.expiration_date and token.expiration_date < timezone.now():
-                return None
-            return token.user
-        except Exception:
+        except TTLToken.DoesNotExist:
             return None
+        if not token.user.is_active:
+            return None
+        if token.expiration_date and token.expiration_date <= timezone.now():
+            return None
+        return token.user

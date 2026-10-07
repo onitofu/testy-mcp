@@ -1,5 +1,6 @@
 from functools import wraps
 
+from asgiref.sync import sync_to_async
 from mcp.server.fastmcp import FastMCP
 
 from testy_mcp.prompts.analyze_failures import AnalyzeFailuresPrompt
@@ -78,6 +79,16 @@ class TestyMcpServer:
         handler.__qualname__ = component.name
         return handler
 
+    @staticmethod
+    def _resource_handler(component):
+        @wraps(component.execute)
+        async def handler(*args, **kwargs):
+            return await sync_to_async(component.execute, thread_sensitive=True)(*args, **kwargs)
+
+        handler.__name__ = component.name
+        handler.__qualname__ = component.name
+        return handler
+
     def build(self) -> FastMCP:
         server = FastMCP(
             "TestY TMS",
@@ -93,7 +104,7 @@ class TestyMcpServer:
             server.add_tool(self._handler(tool), name=tool.name)
         for resource_type in self.resource_types:
             resource = resource_type()
-            server.resource(resource.uri, name=resource.name)(self._handler(resource))
+            server.resource(resource.uri, name=resource.name)(self._resource_handler(resource))
         for prompt_type in self.prompt_types:
             prompt = prompt_type()
             server.prompt(name=prompt.name)(self._handler(prompt))
