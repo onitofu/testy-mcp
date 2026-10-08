@@ -9,7 +9,7 @@ class ExportSuiteTool:
     def execute(
         self, suite_id: int, include_children: bool = True, format: str = "markdown"
     ) -> str:
-        """Export all test cases in a suite in LLM-friendly format.
+        """Export all test cases with their steps; estimates use TestY duration strings.
 
         Args:
             suite_id: Suite ID
@@ -30,9 +30,13 @@ class ExportSuiteTool:
             .filter(suite_id__in=descendant_ids)
             .select_related("suite")
         )
+        cases = list(cases)
+        steps_by_case = {}
+        for step in access.case_steps_many(cases):
+            steps_by_case.setdefault(step.test_case_id, []).append(step)
         if format == "json":
-            return SuiteJsonFormatter().format(suite, suites, cases)
-        return SuiteMarkdownFormatter().format(suite, suites, cases)
+            return SuiteJsonFormatter().format(suite, suites, cases, steps_by_case)
+        return SuiteMarkdownFormatter().format(suite, suites, cases, steps_by_case)
 
     def _get_descendant_ids(self, suite_id: int, all_suites) -> set:
         children_map = {}

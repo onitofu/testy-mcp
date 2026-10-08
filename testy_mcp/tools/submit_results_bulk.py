@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 from testy_mcp.services.result_status_resolver import ResultStatusResolver
 
 
@@ -31,6 +32,7 @@ class SubmitResultsBulkTool:
             raise ValidationError("At least one result is required.")
         access = AccessControl()
         plan, plan_tests = access.plan_for_results(plan_id)
+        results = [InputValidation.result_item(result) for result in results]
         tests_by_id = {t.id: t for t in plan_tests}
         tests_by_name = {}
         for t in plan_tests:
@@ -45,17 +47,17 @@ class SubmitResultsBulkTool:
             test = self._resolve_test(r, tests_by_id, tests_by_name)
             access.submit(test)
             status_obj = ResultStatusResolver.resolve(r["status"], test.project_id)
-            prepared.append((r, test, status_obj))
+            data = {"comment": r["comment"], "execution_time": r["execution_time"]}
+            prepared.append((data, test, status_obj))
         submitted = []
         with transaction.atomic():
-            for r, test, status_obj in prepared:
+            for data, test, status_obj in prepared:
                 result = TestResult.objects.create(
                     project_id=test.project_id,
                     test=test,
                     status=status_obj,
                     user=user,
-                    comment=r.get("comment", ""),
-                    execution_time=r.get("execution_time"),
+                    **data,
                     test_case_version=test.case.history.first().history_id
                     if test.case.history.exists()
                     else 0,

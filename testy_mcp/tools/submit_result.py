@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 from testy_mcp.services.result_status_resolver import ResultStatusResolver
 
 
@@ -25,13 +26,13 @@ class SubmitResultTool:
         test = access.test_for_result(test_id)
         status_obj = ResultStatusResolver.resolve(status, test.project_id)
         user = access.user
+        data = InputValidation.result({"comment": comment, "execution_time": execution_time})
         result = TestResult.objects.create(
             project_id=test.project_id,
             test=test,
             status=status_obj,
             user=user,
-            comment=comment,
-            execution_time=execution_time,
+            **data,
             test_case_version=test.case.history.first().history_id
             if test.case.history.exists()
             else 0,

@@ -9,6 +9,8 @@ description = "MCP (Model Context Protocol) server plugin for TestY TMS"
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.0,<2",
+    "jsonschema>=4.20,<5",
+    "pytimeparse>=1.1.8,<2",
     "django-oauth-toolkit>=2.0",
     "uvicorn<0.36",
 ]

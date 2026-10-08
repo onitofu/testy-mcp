@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreateLabelTool:
@@ -19,7 +20,6 @@ class CreateLabelTool:
 
         access = AccessControl()
         access.create("label", project_id)
-        label = Label.objects.create(
-            project_id=project_id, name=name, color=color, user=access.user
-        )
+        data = InputValidation.fields(Label, {"name": name, "color": color})
+        label = Label.objects.create(project_id=project_id, user=access.user, **data)
         return {"id": label.id, "name": label.name, "color": label.color}

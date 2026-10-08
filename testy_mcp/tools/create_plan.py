@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreatePlanTool:
@@ -35,14 +36,19 @@ class CreatePlanTool:
         if parent_id is not None:
             access.parent("plan", parent_id, project_id)
         access.plan_cases(case_ids or [], project_id)
+        data = InputValidation.plan(
+            {
+                "name": name,
+                "description": description,
+                "started_at": started_at,
+                "due_date": due_date,
+            }
+        )
         with transaction.atomic():
             plan = TestPlan.objects.create(
                 project_id=project_id,
-                name=name,
-                description=description,
                 parent_id=parent_id,
-                started_at=started_at,
-                due_date=due_date,
+                **data,
             )
             tests_added = 0
             if case_ids:

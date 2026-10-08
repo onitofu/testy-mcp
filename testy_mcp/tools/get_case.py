@@ -1,11 +1,12 @@
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 
 
 class GetCaseTool:
     name = "get_case"
 
     def execute(self, case_id: int) -> dict:
-        """Get full test case content.
+        """Get full test case content, with estimate as a TestY duration string or null.
 
         Args:
             case_id: Test case ID
@@ -37,7 +38,7 @@ class GetCaseTool:
             "expected": c.expected,
             "teardown": c.teardown,
             "description": c.description,
-            "estimate": c.estimate,
+            "estimate": InputValidation.format_estimate(c.estimate),
             "is_steps": c.is_steps,
             "labels": labels,
             "steps": steps,

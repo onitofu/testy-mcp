@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 
 from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreateCasesBulkTool:
@@ -20,10 +21,11 @@ class CreateCasesBulkTool:
             suite_id: Suite ID to place cases in
             cases: Array of test cases. Each: {"name": str, "scenario": str,
                    "expected": str, "setup": str, "teardown": str, "description": str,
-                   "estimate": int, "steps": [{"name": str, "scenario": str,
+                   "estimate": int | str | null, "steps": [{"name": str, "scenario": str,
                    "expected": str}], "label_ids": [int]}.
                    When "steps" is provided, the case uses step-based format.
                    "label_ids" attaches labels.
+                   Estimates accept integer minutes or duration strings ("30s", "1m 30s").
 
         Maximum 100 cases per call.
         """
@@ -34,6 +36,7 @@ class CreateCasesBulkTool:
         access = AccessControl()
         access.create("case", project_id)
         access.related("suite", suite_id, project_id)
+        cases = [InputValidation.case(case_data) for case_data in cases]
         for case_data in cases:
             access.case_payload(case_data, project_id)
         created = []

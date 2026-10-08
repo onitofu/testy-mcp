@@ -13,7 +13,5 @@ class DeleteSuiteTool:
         Args:
             suite_id: Suite ID
         """
-        suite = AccessControl().get("suite", suite_id, "destroy")
-        suite.is_deleted = True
-        suite.save()
+        AccessControl().delete("suite", suite_id)
         return {"deleted": True, "id": suite_id}

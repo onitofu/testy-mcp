@@ -13,7 +13,5 @@ class DeleteCaseTool:
         Args:
             case_id: Test case ID
         """
-        case = AccessControl().get("case", case_id, "destroy")
-        case.is_deleted = True
-        case.save()
+        AccessControl().delete("case", case_id)
         return {"deleted": True, "id": case_id}

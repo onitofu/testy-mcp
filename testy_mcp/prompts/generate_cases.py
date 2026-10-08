@@ -43,7 +43,8 @@ Existing tests in suite (do not duplicate):
 
 Available labels: {labels_info}
 
-For each test case provide: name, setup, scenario, expected, estimate (minutes).
+For each test case provide: name, setup, scenario, expected, estimate.
+Estimate accepts integer minutes or a duration string, e.g. "30s".
 After generation, use the create_cases_bulk tool to create the cases in suite_id={suite_id}."""
             )
         ]

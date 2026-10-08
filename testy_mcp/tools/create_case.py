@@ -2,6 +2,7 @@ from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreateCaseTool:
@@ -18,7 +19,7 @@ class CreateCaseTool:
         setup: str = "",
         teardown: str = "",
         description: str = "",
-        estimate: int | None = None,
+        estimate: int | str | None = None,
         steps: list[dict] | None = None,
         label_ids: list[int] | None = None,
     ) -> dict:
@@ -33,7 +34,7 @@ class CreateCaseTool:
             setup: Preconditions
             teardown: Postconditions
             description: Description
-            estimate: Estimated execution time (minutes)
+            estimate: Integer minutes or a duration string ("30s", "1m 30s", "1d")
             steps: Array of steps for multi-step mode. Each:
                    {"name": str, "scenario": str, "expected": str}.
                    When provided, uses step-based format instead of single scenario.
@@ -46,19 +47,28 @@ class CreateCaseTool:
         access.create("case", project_id)
         access.related("suite", suite_id, project_id)
         access.related_many("label", label_ids or [], project_id)
+        data = InputValidation.case(
+            {
+                "name": name,
+                "scenario": scenario,
+                "expected": expected,
+                "setup": setup,
+                "teardown": teardown,
+                "description": description,
+                "estimate": estimate,
+                "steps": steps,
+            }
+        )
+        steps = data.pop("steps")
         is_steps = bool(steps)
+        if is_steps:
+            data.update(scenario="", expected="")
         with transaction.atomic():
             case = TestCase.objects.create(
                 project_id=project_id,
                 suite_id=suite_id,
-                name=name,
-                scenario="" if is_steps else scenario,
-                expected="" if is_steps else expected,
-                setup=setup,
-                teardown=teardown,
-                description=description,
-                estimate=estimate,
                 is_steps=is_steps,
+                **data,
             )
             if is_steps:
                 for i, step in enumerate(steps):

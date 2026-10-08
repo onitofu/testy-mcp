@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreateSuiteTool:
@@ -24,9 +25,8 @@ class CreateSuiteTool:
         access.create("suite", project_id)
         if parent_id is not None:
             access.parent("suite", parent_id, project_id)
-        suite = TestSuite.objects.create(
-            project_id=project_id, name=name, description=description, parent_id=parent_id
-        )
+        data = InputValidation.fields(TestSuite, {"name": name, "description": description})
+        suite = TestSuite.objects.create(project_id=project_id, parent_id=parent_id, **data)
         return {
             "id": suite.id,
             "name": suite.name,

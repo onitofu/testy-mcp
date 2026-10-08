@@ -6,7 +6,9 @@ class GetMeTool:
 
     def execute(self) -> dict:
         """Get the username and name of the authenticated user."""
-        user = AccessControl().user
+        access = AccessControl()
+        access.require_scope("retrieve")
+        user = access.user
         return {
             "username": user.username,
             "first_name": user.first_name,

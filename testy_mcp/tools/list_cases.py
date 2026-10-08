@@ -1,4 +1,5 @@
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 from testy_mcp.services.pagination import Pagination
 
 
@@ -13,7 +14,7 @@ class ListCasesTool:
         page: int = 1,
         page_size: int = 100,
     ) -> dict:
-        """List test cases with filters, count, pages and results.
+        """List test cases with filters, count, pages and results; estimates are duration strings.
 
         Args:
             project_id: Project ID
@@ -45,7 +46,7 @@ class ListCasesTool:
                     "suite_id": c.suite_id,
                     "suite_name": c.suite.name,
                     "is_steps": c.is_steps,
-                    "estimate": c.estimate,
+                    "estimate": InputValidation.format_estimate(c.estimate),
                     "labels": labels_by_case.get(c.id, []),
                 }
                 for c in cases

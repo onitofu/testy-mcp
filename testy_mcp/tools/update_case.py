@@ -2,6 +2,8 @@ from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
+from testy_mcp.services.input_validation import InputValidation
+from testy_mcp.services.optional_argument import OptionalArgument
 
 
 class UpdateCaseTool:
@@ -18,7 +20,7 @@ class UpdateCaseTool:
         setup: str | None = None,
         teardown: str | None = None,
         description: str | None = None,
-        estimate: int | None = None,
+        estimate: int | str | None = OptionalArgument.UNSET,
         steps: list[dict] | None = None,
         label_ids: list[int] | None = None,
     ) -> dict:
@@ -33,14 +35,14 @@ class UpdateCaseTool:
             setup: New preconditions
             teardown: New postconditions
             description: New description
-            estimate: New time estimate (minutes)
+            estimate: Integer minutes or a duration string; null clears it, omission keeps it
             steps: Replace steps with new ones. Each:
                    {"name": str, "scenario": str, "expected": str}.
                    Pass empty list [] to switch to simple mode.
             label_ids: Replace labels. Pass array of label IDs.
                        Pass empty list [] to remove all labels.
         """
-        from testy.tests_description.models import TestCaseStep
+        from testy.tests_description.models import TestCase, TestCaseStep
 
         access = AccessControl()
         case = access.get("case", case_id, "update")
@@ -50,19 +52,24 @@ class UpdateCaseTool:
             access.related_many("label", label_ids, case.project_id)
         if steps is not None:
             access.case_steps(case)
+            steps = InputValidation.case({"name": case.name, "steps": steps})["steps"]
         fields = {
             "name": name,
-            "suite_id": suite_id,
             "scenario": scenario,
             "expected": expected,
             "setup": setup,
             "teardown": teardown,
             "description": description,
-            "estimate": estimate,
         }
+        fields = InputValidation.fields(
+            TestCase, {key: value for key, value in fields.items() if value is not None}
+        )
+        if suite_id is not None:
+            fields["suite_id"] = suite_id
+        if estimate is not OptionalArgument.UNSET:
+            fields["estimate"] = InputValidation.estimate(estimate)
         for field, value in fields.items():
-            if value is not None:
-                setattr(case, field, value)
+            setattr(case, field, value)
         with transaction.atomic():
             if steps is not None:
                 access.case_steps(case).update(is_deleted=True)

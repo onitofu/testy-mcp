@@ -14,6 +14,7 @@ from rest_framework.exceptions import APIException, ValidationError
 from testy_mcp.auth import RequestAuthenticator
 from testy_mcp.json_rpc_error import JsonRpcError
 from testy_mcp.oauth import OAuthMetadata
+from testy_mcp.services.tool_arguments import ToolArguments
 
 logger = logging.getLogger("testy_mcp")
 MCP_PROTOCOL_VERSION = "2025-03-26"
@@ -60,7 +61,7 @@ class McpHttpView(View):
         from testy_mcp.context import RequestContext
         from testy_mcp.server import mcp
 
-        RequestContext.set(user)
+        RequestContext.set(user, getattr(request, "mcp_scopes", None))
         HistoricalRecords.context.request = request
         try:
             try:
@@ -163,6 +164,7 @@ class McpHttpView(View):
                 inspect.signature(tool.fn).bind(**arguments)
             except TypeError as exc:
                 raise ValidationError(str(exc)) from exc
+            ToolArguments.validate(tool, arguments)
             raw_result = await sync_to_async(tool.fn)(**arguments)
             if isinstance(raw_result, str):
                 text = raw_result

@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from testy_mcp.services.access_control import AccessControl
+from testy_mcp.services.input_validation import InputValidation
 
 
 class CreateSuitesBulkTool:
@@ -17,7 +18,7 @@ class CreateSuitesBulkTool:
         """
         access = AccessControl()
         access.create("suite", project_id)
-        access.suite_payloads(suites)
+        suites = InputValidation.suites(suites)
         created = []
         with transaction.atomic():
             for suite_data in suites:

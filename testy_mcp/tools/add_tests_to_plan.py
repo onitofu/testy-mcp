@@ -17,7 +17,7 @@ class AddTestsToPlanTool:
         from testy.tests_representation.models import Test
 
         access = AccessControl()
-        plan = access.get("plan", plan_id, "update")
+        plan = access.plan_for_tests(plan_id)
         access.plan_cases(case_ids, plan.project_id)
         created = []
         with transaction.atomic():

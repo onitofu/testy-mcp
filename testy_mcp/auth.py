@@ -11,6 +11,7 @@ class RequestAuthenticator:
         2. TestY TTL token (Authorization: Token <key>)
         3. Django session authentication
         """
+        request.mcp_scopes = None
         user = cls._authenticate_oauth(request)
         if user:
             return user
@@ -29,6 +30,7 @@ class RequestAuthenticator:
         auth = OAuth2Authentication()
         result = auth.authenticate(request)
         if result:
+            request.mcp_scopes = frozenset(result[1].scope.split())
             return result[0]
         return None
 

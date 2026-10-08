@@ -2,7 +2,7 @@ from importlib import import_module
 from types import SimpleNamespace
 
 from django.db.models import Exists, F, OuterRef, Q
-from rest_framework.exceptions import NotAuthenticated, ValidationError
+from rest_framework.exceptions import NotAuthenticated, PermissionDenied, ValidationError
 
 from testy_mcp.context import RequestContext
 
@@ -46,18 +46,28 @@ class AccessControl:
         return get_object_or_404(queryset, **filters)
 
     def _check(self, entity, action, project_id=None, instance=None, data=None):
+        self.require_scope(action)
         view = self._view(entity)
         view.action = action
         view.request = SimpleNamespace(
             user=self.user,
             method=self.methods[action],
             data=data if data is not None else {"project": project_id},
-            query_params={"project": project_id},
+            query_params={"project": project_id} if action == "list" else {},
             authenticators=[],
         )
         view.check_permissions(view.request)
         if instance is not None:
             view.check_object_permissions(view.request, instance)
+
+    @staticmethod
+    def require_scope(action):
+        scopes = RequestContext.scopes()
+        if scopes is None:
+            return
+        operation = "read" if action in {"list", "retrieve"} else "write"
+        if not set(scopes) & {operation, f"mcp:{operation}"}:
+            raise PermissionDenied(f"OAuth scope {operation} is required.")
 
     def projects(self):
         from testy.core.selectors.projects import ProjectSelector
@@ -81,6 +91,7 @@ class AccessControl:
         return queryset.filter(condition)
 
     def get(self, entity, object_id, action="retrieve"):
+        self.require_scope(action)
         queryset = self._queryset(entity)
         if entity == "project":
             from testy.core.selectors.projects import ProjectSelector
@@ -100,6 +111,7 @@ class AccessControl:
         return instance
 
     def list(self, entity, project_id):
+        self.require_scope("list")
         project = self._find(self._queryset("project"), pk=project_id)
         self._check("project", "retrieve", project_id, project)
         self._check(entity, "list", project_id)
@@ -111,9 +123,27 @@ class AccessControl:
         return self.validate_queryset(entity, queryset)
 
     def create(self, entity, project_id, data=None):
+        self.require_scope("create")
         project = self._find(self._queryset("project"), pk=project_id)
         self._check(entity, "create", project_id, data={"project": project_id, **(data or {})})
         return project
+
+    def plan_for_tests(self, plan_id):
+        self.require_scope("create")
+        plan = self._find(
+            self._queryset("plan").select_related("project"),
+            pk=plan_id,
+            project__is_deleted=False,
+        )
+        self.create("test", plan.project_id, {"plan": plan.pk})
+        self.validate_queryset("plan", self._queryset("plan").filter(pk=plan.pk))
+        return plan
+
+    def delete(self, entity, object_id):
+        from testy_mcp.services.soft_deletion import SoftDeletion
+
+        instance = self.get(entity, object_id, "destroy")
+        SoftDeletion.delete(self._view(entity), instance)
 
     def related(self, entity, object_id, project_id):
         return self._find(self.related_many(entity, [object_id], project_id), pk=object_id)
@@ -152,6 +182,7 @@ class AccessControl:
         TestResultArchiveTestValidator()({"test": test}, SimpleNamespace(instance=None))
 
     def test_for_result(self, test_id):
+        self.require_scope("create")
         test = self._find(
             self._queryset("test").select_related("project", "case", "plan"),
             pk=test_id,
@@ -161,6 +192,7 @@ class AccessControl:
         return test
 
     def plan_for_results(self, plan_id):
+        self.require_scope("create")
         plan = self._find(
             self._queryset("plan").select_related("project"),
             pk=plan_id,
@@ -192,15 +224,6 @@ class AccessControl:
         if data.get("label_ids"):
             self.related_many("label", data["label_ids"], project_id)
 
-    @classmethod
-    def suite_payloads(cls, suites):
-        if not isinstance(suites, list):
-            raise ValidationError("Suites must be a list.")
-        for suite in suites:
-            if not isinstance(suite, dict) or not isinstance(suite.get("name"), str):
-                raise ValidationError("Each suite must have a name.")
-            cls.suite_payloads(suite.get("children", []))
-
     def results(self, test):
         queryset = self._queryset("result").filter(test_id=test.pk)
         return self.validate_queryset("result", queryset)
@@ -225,6 +248,23 @@ class AccessControl:
         if queryset.exclude(project_id=case.project_id).exists():
             raise ValidationError("Invalid project relationship.")
         return queryset
+
+    def case_steps_many(self, cases):
+        self.require_scope("retrieve")
+        case_projects = {case.pk: case.project_id for case in cases if case.is_steps}
+        if not case_projects:
+            return []
+
+        from testy.tests_description.models import TestCaseStep
+
+        steps = list(
+            TestCaseStep.objects.filter(test_case_id__in=case_projects, is_deleted=False).order_by(
+                "test_case_id", "sort_order", "id"
+            )
+        )
+        if any(step.project_id != case_projects[step.test_case_id] for step in steps):
+            raise ValidationError("Invalid project relationship.")
+        return steps
 
     @staticmethod
     def validate_queryset(entity, queryset):
