@@ -1,12 +1,14 @@
 import base64
+import inspect
 import json
 import logging
 
 from asgiref.sync import sync_to_async
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.exceptions import APIException, ValidationError
 
 from testy_mcp.auth import RequestAuthenticator
 from testy_mcp.json_rpc_error import JsonRpcError
@@ -118,10 +120,26 @@ class McpHttpView(View):
         if method == "tools/call":
             name = params.get("name", "")
             arguments = params.get("arguments", {})
+            if not isinstance(name, str) or not isinstance(arguments, dict):
+                raise JsonRpcError(-32602, "Invalid tool call params")
             tool = mcp_server._tool_manager._tools.get(name)
             if tool is None:
                 raise JsonRpcError(-32602, f"Unknown tool: {name}")
-            raw_result = await sync_to_async(tool.fn)(**arguments)
+            try:
+                try:
+                    inspect.signature(tool.fn).bind(**arguments)
+                except TypeError as exc:
+                    raise ValidationError(str(exc)) from exc
+                raw_result = await sync_to_async(tool.fn)(**arguments)
+            except (APIException, Http404) as exc:
+                error = {
+                    "status_code": exc.status_code if isinstance(exc, APIException) else 404,
+                    "detail": exc.detail if isinstance(exc, APIException) else "Not found.",
+                }
+                return {
+                    "isError": True,
+                    "content": [{"type": "text", "text": json.dumps(error, ensure_ascii=False)}],
+                }
             if isinstance(raw_result, str):
                 text = raw_result
             else:

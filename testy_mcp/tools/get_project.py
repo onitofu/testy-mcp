@@ -1,18 +1,19 @@
+from testy_mcp.services.project_access import ProjectAccess
+
+
 class GetProjectTool:
     name = "get_project"
 
     def execute(self, project_id: int) -> dict:
-        """Get detailed project information including statistics.
+        """Get project information and statistics, subject to TestY read permissions.
 
         Args:
             project_id: Project ID
         """
-        from testy.core.models import Project
-
-        project = Project.objects.get(id=project_id, is_deleted=False)
+        project = ProjectAccess().get(project_id)
         stats = {}
-        if hasattr(project, "project_statistics"):
-            s = project.project_statistics
+        s = getattr(project, "projectstatistics", None)
+        if s is not None:
             stats = {
                 "cases_count": s.cases_count,
                 "suites_count": s.suites_count,

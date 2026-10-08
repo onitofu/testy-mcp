@@ -1,23 +1,37 @@
+from testy_mcp.services.pagination import Pagination
+
+
 class ListSuitesTool:
     name = "list_suites"
 
-    def execute(self, project_id: int, tree_view: bool = True, search: str = "") -> list[dict]:
-        """List test suites in a project.
+    def execute(
+        self,
+        project_id: int,
+        tree_view: bool = True,
+        search: str = "",
+        page: int = 1,
+        page_size: int = 100,
+    ) -> dict:
+        """List test suites in a project, with count, pages and results.
 
         Args:
             project_id: Project ID
-            tree_view: Return as tree structure (default: True)
+            tree_view: Paginate roots with complete filtered subtrees (default: True)
             search: Search by suite name
+            page: Page number starting at 1
+            page_size: Suites per page, or roots in tree view (default: 100, maximum: 1000)
         """
         from testy.tests_description.models import TestSuite
 
+        pagination = Pagination(page, page_size)
         qs = TestSuite.objects.filter(project_id=project_id, is_deleted=False)
         if search:
             qs = qs.filter(name__icontains=search)
-        suites = list(qs.values("id", "name", "description", "parent_id"))
+        suites = pagination.order_queryset(qs).values("id", "name", "description", "parent_id")
         if not tree_view:
-            return suites
-        return self._build_tree(suites)
+            return pagination.response(list(pagination.paginate(suites)))
+        roots = self._build_tree(list(suites))
+        return pagination.response(list(pagination.paginate(roots)))
 
     def _build_tree(self, suites: list[dict]) -> list[dict]:
         by_id = {s["id"]: {**s, "children": []} for s in suites}
