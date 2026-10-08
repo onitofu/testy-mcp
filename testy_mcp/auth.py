@@ -1,4 +1,6 @@
 from django.http import HttpRequest
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 
 
 class RequestAuthenticator:
@@ -18,7 +20,8 @@ class RequestAuthenticator:
         user = cls._authenticate_ttl_token(request)
         if user:
             return user
-        if hasattr(request, "user") and request.user.is_authenticated:
+        if hasattr(request, "user") and request.user.is_authenticated and request.user.is_active:
+            SessionAuthentication().enforce_csrf(request)
             return request.user
         return None
 
@@ -30,6 +33,8 @@ class RequestAuthenticator:
         auth = OAuth2Authentication()
         result = auth.authenticate(request)
         if result:
+            if result[0] is None or not result[0].is_active:
+                raise AuthenticationFailed()
             request.mcp_scopes = frozenset(result[1].scope.split())
             return result[0]
         return None

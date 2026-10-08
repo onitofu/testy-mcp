@@ -16,6 +16,14 @@ class TestyMcpConfig(TestyPluginConfig):
 
     @classmethod
     def configure(cls):
+        origin_middleware = "testy_mcp.origin_middleware.McpOriginMiddleware"
+        middlewares = _common_settings.MIDDLEWARE
+        middlewares[:] = [
+            middleware for middleware in middlewares if middleware != origin_middleware
+        ]
+        cors_middleware = "corsheaders.middleware.CorsMiddleware"
+        origin_index = middlewares.index(cors_middleware) if cors_middleware in middlewares else 0
+        middlewares.insert(origin_index, origin_middleware)
         if "oauth2_provider" not in _common_settings.INSTALLED_APPS:
             _common_settings.INSTALLED_APPS.append("oauth2_provider")
         if not hasattr(_common_settings, "OAUTH2_PROVIDER"):

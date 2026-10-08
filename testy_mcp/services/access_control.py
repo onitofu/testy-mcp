@@ -28,7 +28,7 @@ class AccessControl:
 
     def __init__(self):
         self.user = RequestContext.get()
-        if self.user is None or not self.user.is_authenticated:
+        if self.user is None or not self.user.is_authenticated or not self.user.is_active:
             raise NotAuthenticated()
 
     def _view(self, entity):

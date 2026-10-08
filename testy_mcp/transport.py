@@ -9,7 +9,12 @@ from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    AuthenticationFailed,
+    PermissionDenied,
+    ValidationError,
+)
 
 from testy_mcp.auth import RequestAuthenticator
 from testy_mcp.json_rpc_error import JsonRpcError
@@ -30,8 +35,14 @@ class McpHttpView(View):
     """
 
     async def post(self, request: HttpRequest) -> HttpResponse:
+        if request.content_type != "application/json":
+            return JsonResponse({"error": "Content-Type must be application/json"}, status=415)
         try:
             user = await sync_to_async(RequestAuthenticator.authenticate)(request)
+        except AuthenticationFailed:
+            user = None
+        except PermissionDenied as exc:
+            return JsonResponse({"error": str(exc.detail)}, status=403)
         except Exception:
             logger.exception("MCP authentication error")
             return self._error_response(-32603, "Internal error", None, status=500)

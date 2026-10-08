@@ -57,7 +57,7 @@ class OAuthWellKnownMiddleware:
             if isinstance(redirect_uris, list)
             else redirect_uris,
             client_secret=client_secret,
-            skip_authorization=True,
+            skip_authorization=False,
         )
         response_data = {
             "client_id": app.client_id,
