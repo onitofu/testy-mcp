@@ -1,3 +1,6 @@
+from testy_mcp.services.access_control import AccessControl
+
+
 class GetPlanTool:
     name = "get_plan"
 
@@ -8,10 +11,10 @@ class GetPlanTool:
             plan_id: Test plan ID
         """
         from django.db.models import Count
-        from testy.tests_representation.models import Test, TestPlan
 
-        plan = TestPlan.objects.get(id=plan_id, is_deleted=False)
-        tests = Test.objects.filter(plan=plan, is_deleted=False)
+        access = AccessControl()
+        plan = access.get("plan", plan_id)
+        tests = access.tests(plan)
         total = tests.count()
         status_counts = (
             tests.filter(last_status__isnull=False)

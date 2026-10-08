@@ -1,5 +1,7 @@
 from django.db.models import Count
 
+from testy_mcp.services.access_control import AccessControl
+
 
 class GetPlanStatisticsTool:
     name = "get_plan_statistics"
@@ -10,10 +12,9 @@ class GetPlanStatisticsTool:
         Args:
             plan_id: Test plan ID
         """
-        from testy.tests_representation.models import Test, TestPlan
-
-        plan = TestPlan.objects.get(id=plan_id, is_deleted=False)
-        tests = Test.objects.filter(plan=plan, is_deleted=False)
+        access = AccessControl()
+        plan = access.get("plan", plan_id)
+        tests = access.tests(plan)
         total = tests.count()
         if total == 0:
             return {

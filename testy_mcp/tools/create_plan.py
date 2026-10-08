@@ -1,9 +1,12 @@
 from django.db import transaction
 
+from testy_mcp.services.access_control import AccessControl
+
 
 class CreatePlanTool:
     name = "create_plan"
 
+    @transaction.atomic
     def execute(
         self,
         project_id: int,
@@ -27,6 +30,11 @@ class CreatePlanTool:
         """
         from testy.tests_representation.models import Test, TestPlan
 
+        access = AccessControl()
+        access.create("plan", project_id)
+        if parent_id is not None:
+            access.parent("plan", parent_id, project_id)
+        access.plan_cases(case_ids or [], project_id)
         with transaction.atomic():
             plan = TestPlan.objects.create(
                 project_id=project_id,

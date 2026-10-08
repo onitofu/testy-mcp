@@ -1,3 +1,6 @@
+from testy_mcp.services.access_control import AccessControl
+
+
 class GetCaseTool:
     name = "get_case"
 
@@ -7,11 +10,10 @@ class GetCaseTool:
         Args:
             case_id: Test case ID
         """
-        from testy.tests_description.models import TestCase
-
-        c = TestCase.objects.select_related("suite").get(id=case_id, is_deleted=False)
+        access = AccessControl()
+        c = access.get("case", case_id)
         labels = []
-        for li in c.labeled_items.select_related("label").all():
+        for li in access.case_labels(c.project_id, [c.pk]):
             if hasattr(li, "label") and li.label:
                 labels.append({"id": li.label.id, "name": li.label.name})
         steps = []
@@ -24,7 +26,7 @@ class GetCaseTool:
                     "expected": s.expected,
                     "sort_order": s.sort_order,
                 }
-                for s in c.steps.filter(is_deleted=False).order_by("sort_order", "id")
+                for s in access.case_steps(c).order_by("sort_order", "id")
             ]
         return {
             "id": c.id,

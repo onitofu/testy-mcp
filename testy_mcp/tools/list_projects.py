@@ -1,5 +1,5 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
-from testy_mcp.services.project_access import ProjectAccess
 
 
 class ListProjectsTool:
@@ -17,7 +17,7 @@ class ListProjectsTool:
             page_size: Records per page (default: 100, maximum: 1000)
         """
         pagination = Pagination(page, page_size)
-        qs = ProjectAccess().readable().filter(is_archive=is_archive)
+        qs = AccessControl().projects().filter(is_archive=is_archive)
         if search:
             qs = qs.filter(name__icontains=search)
         return pagination.response(

@@ -1,5 +1,7 @@
 from mcp.server.fastmcp.prompts import base
 
+from testy_mcp.services.access_control import AccessControl
+
 
 class ReviewCoveragePrompt:
     name = "review_coverage"
@@ -12,23 +14,19 @@ class ReviewCoveragePrompt:
             requirements: Requirements description to compare against
         """
         cases_info = ""
-        try:
-            from testy.tests_description.models import TestCase, TestSuite
-
-            suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
-            cases = TestCase.objects.filter(suite=suite, is_deleted=False)
-            if cases.exists():
-                lines = []
-                for c in cases[:100]:
-                    lines.append(
-                        f"### {c.name}\n- Setup: {c.setup}\n"
-                        f"- Steps: {c.scenario}\n- Expected: {c.expected}"
-                    )
-                cases_info = "\n\n".join(lines)
-            else:
-                cases_info = "(no test cases in this suite)"
-        except Exception:
-            cases_info = "(could not load)"
+        access = AccessControl()
+        suite = access.get("suite", suite_id)
+        cases = access.list("case", suite.project_id).filter(suite_id=suite.pk)
+        if cases.exists():
+            lines = []
+            for c in cases[:100]:
+                lines.append(
+                    f"### {c.name}\n- Setup: {c.setup}\n"
+                    f"- Steps: {c.scenario}\n- Expected: {c.expected}"
+                )
+            cases_info = "\n\n".join(lines)
+        else:
+            cases_info = "(no test cases in this suite)"
         reqs_section = f"\nRequirements:\n{requirements}" if requirements else ""
         return [
             base.UserMessage(

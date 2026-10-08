@@ -1,11 +1,13 @@
 from django.db import transaction
 
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
 
 
 class UpdateCaseTool:
     name = "update_case"
 
+    @transaction.atomic
     def execute(
         self,
         case_id: int,
@@ -38,9 +40,16 @@ class UpdateCaseTool:
             label_ids: Replace labels. Pass array of label IDs.
                        Pass empty list [] to remove all labels.
         """
-        from testy.tests_description.models import TestCase, TestCaseStep
+        from testy.tests_description.models import TestCaseStep
 
-        case = TestCase.objects.get(id=case_id, is_deleted=False)
+        access = AccessControl()
+        case = access.get("case", case_id, "update")
+        if suite_id is not None:
+            access.related("suite", suite_id, case.project_id)
+        if label_ids is not None:
+            access.related_many("label", label_ids, case.project_id)
+        if steps is not None:
+            access.case_steps(case)
         fields = {
             "name": name,
             "suite_id": suite_id,
@@ -56,7 +65,7 @@ class UpdateCaseTool:
                 setattr(case, field, value)
         with transaction.atomic():
             if steps is not None:
-                case.steps.filter(is_deleted=False).update(is_deleted=True)
+                access.case_steps(case).update(is_deleted=True)
                 if steps:
                     case.is_steps = True
                     case.scenario = ""

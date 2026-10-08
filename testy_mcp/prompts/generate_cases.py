@@ -1,5 +1,7 @@
 from mcp.server.fastmcp.prompts import base
 
+from testy_mcp.services.access_control import AccessControl
+
 
 class GenerateCasesPrompt:
     name = "generate_cases"
@@ -16,25 +18,18 @@ class GenerateCasesPrompt:
         """
         existing = ""
         labels_info = ""
-        try:
-            from testy.tests_description.models import TestCase, TestSuite
-
-            suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
-            cases = TestCase.objects.filter(suite=suite, is_deleted=False)
-            if cases.exists():
-                existing = "\n".join((f"- {c.name}" for c in cases[:50]))
-            else:
-                existing = "(no existing cases)"
-            from testy.core.models import Label
-
-            labels = Label.objects.filter(project=suite.project, is_deleted=False)
-            if labels.exists():
-                labels_info = ", ".join((f"{label.name} (id={label.id})" for label in labels))
-            else:
-                labels_info = "(no labels)"
-        except Exception:
-            existing = "(could not load)"
-            labels_info = "(could not load)"
+        access = AccessControl()
+        suite = access.get("suite", suite_id)
+        cases = access.list("case", suite.project_id).filter(suite_id=suite.pk)
+        if cases.exists():
+            existing = "\n".join((f"- {c.name}" for c in cases[:50]))
+        else:
+            existing = "(no existing cases)"
+        labels = access.list("label", suite.project_id)
+        if labels.exists():
+            labels_info = ", ".join((f"{label.name} (id={label.id})" for label in labels))
+        else:
+            labels_info = "(no labels)"
         return [
             base.UserMessage(
                 content=f"""You are a QA engineer. Generate test cases for the following feature:

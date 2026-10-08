@@ -1,3 +1,4 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -12,10 +13,8 @@ class ListLabelsTool:
             page: Page number starting at 1
             page_size: Records per page (default: 100, maximum: 1000)
         """
-        from testy.core.models import Label
-
         pagination = Pagination(page, page_size)
-        labels = Label.objects.filter(project_id=project_id, is_deleted=False)
+        labels = AccessControl().list("label", project_id)
         return pagination.response(
             [
                 {"id": label.id, "name": label.name, "color": label.color}

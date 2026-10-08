@@ -82,7 +82,7 @@ class TestyMcpServer:
         return handler
 
     @staticmethod
-    def _resource_handler(component):
+    def _async_handler(component):
         @wraps(component.execute)
         async def handler(*args, **kwargs):
             return await sync_to_async(component.execute, thread_sensitive=True)(*args, **kwargs)
@@ -106,10 +106,10 @@ class TestyMcpServer:
             server.add_tool(self._handler(tool), name=tool.name)
         for resource_type in self.resource_types:
             resource = resource_type()
-            server.resource(resource.uri, name=resource.name)(self._resource_handler(resource))
+            server.resource(resource.uri, name=resource.name)(self._async_handler(resource))
         for prompt_type in self.prompt_types:
             prompt = prompt_type()
-            server.prompt(name=prompt.name)(self._handler(prompt))
+            server.prompt(name=prompt.name)(self._async_handler(prompt))
         return server
 
 

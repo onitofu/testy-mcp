@@ -1,3 +1,4 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -21,12 +22,10 @@ class ListTestsTool:
             page: Page number starting at 1
             page_size: Records per page (default: 100, maximum: 1000)
         """
-        from testy.tests_representation.models import Test
-
         pagination = Pagination(page, page_size)
-        qs = Test.objects.filter(plan_id=plan_id, is_deleted=False).select_related(
-            "case", "last_status", "assignee"
-        )
+        access = AccessControl()
+        plan = access.get("plan", plan_id)
+        qs = access.tests(plan).select_related("case", "last_status", "assignee")
         if status:
             qs = qs.filter(last_status__name__iexact=status)
         if search:
@@ -40,7 +39,7 @@ class ListTestsTool:
                     "case_name": t.case.name,
                     "assignee": t.assignee.username if t.assignee else None,
                     "last_status": t.last_status.name if t.last_status else "Untested",
-                    "results_count": t.results.count(),
+                    "results_count": access.results(t).count(),
                 }
                 for t in tests
             ]

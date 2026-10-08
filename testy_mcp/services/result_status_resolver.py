@@ -1,3 +1,6 @@
+from rest_framework.exceptions import ValidationError
+
+
 class ResultStatusResolver:
     @classmethod
     def resolve(cls, status_name: str, project_id: int):
@@ -10,10 +13,5 @@ class ResultStatusResolver:
             is_deleted=False,
         ).first()
         if not status:
-            available = list(
-                ResultStatus.objects.filter(
-                    Q(project_id=project_id) | Q(project_id__isnull=True), is_deleted=False
-                ).values_list("name", flat=True)
-            )
-            raise ValueError(f'Status "{status_name}" not found. Available: {available}')
+            raise ValidationError(f'Status "{status_name}" not found in this project.')
         return status

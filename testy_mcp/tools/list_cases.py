@@ -1,3 +1,4 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -21,21 +22,16 @@ class ListCasesTool:
             page: Page number starting at 1
             page_size: Records per page (default: 100, maximum: 1000)
         """
-        from django.contrib.contenttypes.models import ContentType
-        from testy.core.models import LabeledItem
-        from testy.tests_description.models import TestCase
-
         pagination = Pagination(page, page_size)
-        qs = TestCase.objects.filter(project_id=project_id, is_deleted=False)
-        if suite_id:
+        access = AccessControl()
+        qs = access.list("case", project_id)
+        if suite_id is not None:
+            access.related("suite", suite_id, project_id)
             qs = qs.filter(suite_id=suite_id)
         if search:
             qs = qs.filter(name__icontains=search)
         cases = list(pagination.paginate(qs.select_related("suite")))
-        ct = ContentType.objects.get_for_model(TestCase)
-        labeled = LabeledItem.objects.filter(
-            content_type=ct, object_id__in=[c.id for c in cases], is_deleted=False
-        ).select_related("label")
+        labeled = access.case_labels(project_id, [c.id for c in cases])
         labels_by_case = {}
         for li in labeled:
             labels_by_case.setdefault(li.object_id, []).append(

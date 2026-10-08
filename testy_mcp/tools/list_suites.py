@@ -1,3 +1,4 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -21,10 +22,8 @@ class ListSuitesTool:
             page: Page number starting at 1
             page_size: Suites per page, or roots in tree view (default: 100, maximum: 1000)
         """
-        from testy.tests_description.models import TestSuite
-
         pagination = Pagination(page, page_size)
-        qs = TestSuite.objects.filter(project_id=project_id, is_deleted=False)
+        qs = AccessControl().list("suite", project_id)
         if search:
             qs = qs.filter(name__icontains=search)
         suites = pagination.order_queryset(qs).values("id", "name", "description", "parent_id")

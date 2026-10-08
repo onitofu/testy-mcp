@@ -1,12 +1,13 @@
+from testy_mcp.services.access_control import AccessControl
+
+
 class ProjectLabelsResource:
     name = "project_labels"
     uri = "testy://project/{project_id}/labels"
 
     def execute(self, project_id: int) -> str:
         """List of all project labels."""
-        from testy.core.models import Label
-
-        labels = Label.objects.filter(project_id=project_id, is_deleted=False)
+        labels = AccessControl().list("label", project_id)
         if not labels:
             return "No labels in this project."
         lines = ["Project labels:", ""]

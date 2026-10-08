@@ -1,5 +1,4 @@
-from django.db.models import Q
-
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -14,12 +13,8 @@ class ListStatusesTool:
             page: Page number starting at 1
             page_size: Records per page (default: 100, maximum: 1000)
         """
-        from testy.tests_representation.models import ResultStatus
-
         pagination = Pagination(page, page_size)
-        statuses = ResultStatus.objects.filter(
-            Q(project_id=project_id) | Q(project_id__isnull=True), is_deleted=False
-        )
+        statuses = AccessControl().list("status", project_id)
         return pagination.response(
             [
                 {

@@ -1,11 +1,13 @@
 from django.db import transaction
 
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
 
 
 class CreateCaseTool:
     name = "create_case"
 
+    @transaction.atomic
     def execute(
         self,
         project_id: int,
@@ -40,6 +42,10 @@ class CreateCaseTool:
         """
         from testy.tests_description.models import TestCase, TestCaseStep
 
+        access = AccessControl()
+        access.create("case", project_id)
+        access.related("suite", suite_id, project_id)
+        access.related_many("label", label_ids or [], project_id)
         is_steps = bool(steps)
         with transaction.atomic():
             case = TestCase.objects.create(

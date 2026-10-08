@@ -11,8 +11,7 @@ class TestyMcpConfig(TestyPluginConfig):
     version = "1.0.0"
     plugin_base_url = "mcp"
     urls_module = "testy_mcp.urls"
-    author = "arseniy.sotnikov@7bits.it"
-    author_email = "arseniy.sotnikov@7bits.it"
+    author = "onitofu"
     middlewares = ["testy_mcp.middleware.OAuthWellKnownMiddleware"]
 
     @classmethod

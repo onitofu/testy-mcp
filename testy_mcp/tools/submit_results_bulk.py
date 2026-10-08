@@ -1,6 +1,7 @@
 from django.db import transaction
+from rest_framework.exceptions import ValidationError
 
-from testy_mcp.context import RequestContext
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.result_status_resolver import ResultStatusResolver
 
 
@@ -8,6 +9,7 @@ class SubmitResultsBulkTool:
     name = "submit_results_bulk"
     MAX_BULK_RESULTS = 500
 
+    @transaction.atomic
     def execute(self, plan_id: int, results: list[dict]) -> dict:
         """Submit multiple test results in one atomic operation.
 
@@ -19,13 +21,16 @@ class SubmitResultsBulkTool:
 
         Maximum 500 results per call.
         """
-        from testy.tests_representation.models import Test, TestResult
+        from testy.tests_representation.models import TestResult
 
         if len(results) > self.MAX_BULK_RESULTS:
-            raise ValueError(
+            raise ValidationError(
                 f"Maximum {self.MAX_BULK_RESULTS} results per call, got {len(results)}"
             )
-        plan_tests = Test.objects.filter(plan_id=plan_id, is_deleted=False).select_related("case")
+        if not results:
+            raise ValidationError("At least one result is required.")
+        access = AccessControl()
+        plan, plan_tests = access.plan_for_results(plan_id)
         tests_by_id = {t.id: t for t in plan_tests}
         tests_by_name = {}
         for t in plan_tests:
@@ -34,12 +39,16 @@ class SubmitResultsBulkTool:
                 tests_by_name[name] = None
             else:
                 tests_by_name[name] = t
-        user = RequestContext.get()
+        user = access.user
+        prepared = []
+        for r in results:
+            test = self._resolve_test(r, tests_by_id, tests_by_name)
+            access.submit(test)
+            status_obj = ResultStatusResolver.resolve(r["status"], test.project_id)
+            prepared.append((r, test, status_obj))
         submitted = []
         with transaction.atomic():
-            for r in results:
-                test = self._resolve_test(r, tests_by_id, tests_by_name)
-                status_obj = ResultStatusResolver.resolve(r["status"], test.project_id)
+            for r, test, status_obj in prepared:
                 result = TestResult.objects.create(
                     project_id=test.project_id,
                     test=test,
@@ -60,19 +69,19 @@ class SubmitResultsBulkTool:
         if "test_id" in result_data:
             test_id = result_data["test_id"]
             if test_id not in tests_by_id:
-                raise ValueError(f"Test with ID {test_id} not found in this plan")
+                raise ValidationError(f"Test with ID {test_id} not found in this plan")
             return tests_by_id[test_id]
         if "case_name" in result_data:
             name = result_data["case_name"].lower()
             test = tests_by_name.get(name)
             if test is None:
                 if name in tests_by_name:
-                    raise ValueError(
+                    raise ValidationError(
                         f'Multiple tests found for case name "{result_data["case_name"]}". '
                         f"Use test_id instead."
                     )
-                raise ValueError(
+                raise ValidationError(
                     f"""No test found for case name "{result_data['case_name']}" in this plan"""
                 )
             return test
-        raise ValueError('Each result must have either "test_id" or "case_name"')
+        raise ValidationError('Each result must have either "test_id" or "case_name"')

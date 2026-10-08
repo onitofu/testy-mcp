@@ -1,6 +1,12 @@
+from django.db import transaction
+
+from testy_mcp.services.access_control import AccessControl
+
+
 class CreateSuiteTool:
     name = "create_suite"
 
+    @transaction.atomic
     def execute(
         self, project_id: int, name: str, description: str = "", parent_id: int | None = None
     ) -> dict:
@@ -14,6 +20,10 @@ class CreateSuiteTool:
         """
         from testy.tests_description.models import TestSuite
 
+        access = AccessControl()
+        access.create("suite", project_id)
+        if parent_id is not None:
+            access.parent("suite", parent_id, project_id)
         suite = TestSuite.objects.create(
             project_id=project_id, name=name, description=description, parent_id=parent_id
         )

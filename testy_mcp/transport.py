@@ -4,6 +4,7 @@ import json
 import logging
 
 from asgiref.sync import sync_to_async
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -69,8 +70,10 @@ class McpHttpView(View):
                 return self._success_response(req_id, result)
             except JsonRpcError as exc:
                 if is_notification:
-                    return self._error_response(exc.code, exc.message, None, status=400)
-                return self._error_response(exc.code, exc.message, req_id)
+                    return self._error_response(
+                        exc.code, exc.message, None, status=400, data=exc.data
+                    )
+                return self._error_response(exc.code, exc.message, req_id, data=exc.data)
             except Exception:
                 logger.exception("MCP request handling error for method: %s", method)
                 if is_notification:
@@ -84,6 +87,37 @@ class McpHttpView(View):
                 pass
 
     async def _dispatch(self, mcp_server, method: str, params: dict):
+        try:
+            return await self._dispatch_method(mcp_server, method, params)
+        except Exception as exc:
+            error = self._expected_error(exc)
+            if error is None:
+                raise
+            if method == "tools/call":
+                return {
+                    "isError": True,
+                    "content": [{"type": "text", "text": json.dumps(error, ensure_ascii=False)}],
+                }
+            raise JsonRpcError(-32000, "Request failed", data=error) from exc
+
+    @staticmethod
+    def _expected_error(exc):
+        visited = set()
+        while exc is not None and id(exc) not in visited:
+            visited.add(id(exc))
+            if isinstance(exc, APIException):
+                return {"status_code": exc.status_code, "detail": exc.detail}
+            if isinstance(exc, DjangoValidationError):
+                return {
+                    "status_code": 400,
+                    "detail": exc.message_dict if hasattr(exc, "error_dict") else exc.messages,
+                }
+            if isinstance(exc, Http404):
+                return {"status_code": 404, "detail": "Not found."}
+            exc = exc.__cause__ or exc.__context__
+        return None
+
+    async def _dispatch_method(self, mcp_server, method: str, params: dict):
         """Route JSON-RPC method to the appropriate FastMCP handler."""
         if method == "initialize":
             requested_version = params.get("protocolVersion")
@@ -126,20 +160,10 @@ class McpHttpView(View):
             if tool is None:
                 raise JsonRpcError(-32602, f"Unknown tool: {name}")
             try:
-                try:
-                    inspect.signature(tool.fn).bind(**arguments)
-                except TypeError as exc:
-                    raise ValidationError(str(exc)) from exc
-                raw_result = await sync_to_async(tool.fn)(**arguments)
-            except (APIException, Http404) as exc:
-                error = {
-                    "status_code": exc.status_code if isinstance(exc, APIException) else 404,
-                    "detail": exc.detail if isinstance(exc, APIException) else "Not found.",
-                }
-                return {
-                    "isError": True,
-                    "content": [{"type": "text", "text": json.dumps(error, ensure_ascii=False)}],
-                }
+                inspect.signature(tool.fn).bind(**arguments)
+            except TypeError as exc:
+                raise ValidationError(str(exc)) from exc
+            raw_result = await sync_to_async(tool.fn)(**arguments)
             if isinstance(raw_result, str):
                 text = raw_result
             else:
@@ -227,12 +251,15 @@ class McpHttpView(View):
         return JsonResponse({"jsonrpc": "2.0", "result": result, "id": req_id})
 
     def _error_response(
-        self, code: int, message: str, req_id, status: int | None = None
+        self, code: int, message: str, req_id, status: int | None = None, data=None
     ) -> JsonResponse:
         if status is None:
             status = 400 if code in {-32700, -32600, -32602} else 200
+        error = {"code": code, "message": message}
+        if data is not None:
+            error["data"] = data
         return JsonResponse(
-            {"jsonrpc": "2.0", "error": {"code": code, "message": message}, "id": req_id},
+            {"jsonrpc": "2.0", "error": error, "id": req_id},
             status=status,
         )
 

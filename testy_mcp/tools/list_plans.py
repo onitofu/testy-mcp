@@ -1,3 +1,4 @@
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.pagination import Pagination
 
 
@@ -21,10 +22,8 @@ class ListPlansTool:
             page: Page number starting at 1
             page_size: Records per page (default: 100, maximum: 1000)
         """
-        from testy.tests_representation.models import TestPlan
-
         pagination = Pagination(page, page_size)
-        qs = TestPlan.objects.filter(project_id=project_id, is_deleted=False, is_archive=is_archive)
+        qs = AccessControl().list("plan", project_id).filter(is_archive=is_archive)
         if search:
             qs = qs.filter(name__icontains=search)
         return pagination.response(

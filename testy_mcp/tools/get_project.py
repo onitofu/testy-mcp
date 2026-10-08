@@ -1,4 +1,4 @@
-from testy_mcp.services.project_access import ProjectAccess
+from testy_mcp.services.access_control import AccessControl
 
 
 class GetProjectTool:
@@ -10,7 +10,7 @@ class GetProjectTool:
         Args:
             project_id: Project ID
         """
-        project = ProjectAccess().get(project_id)
+        project = AccessControl().get("project", project_id)
         stats = {}
         s = getattr(project, "projectstatistics", None)
         if s is not None:

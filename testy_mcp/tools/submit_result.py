@@ -1,10 +1,13 @@
-from testy_mcp.context import RequestContext
+from django.db import transaction
+
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.result_status_resolver import ResultStatusResolver
 
 
 class SubmitResultTool:
     name = "submit_result"
 
+    @transaction.atomic
     def execute(
         self, test_id: int, status: str, comment: str = "", execution_time: int | None = None
     ) -> dict:
@@ -16,11 +19,12 @@ class SubmitResultTool:
             comment: Result comment (Markdown)
             execution_time: Execution time in seconds
         """
-        from testy.tests_representation.models import Test, TestResult
+        from testy.tests_representation.models import TestResult
 
-        test = Test.objects.select_related("case").get(id=test_id, is_deleted=False)
+        access = AccessControl()
+        test = access.test_for_result(test_id)
         status_obj = ResultStatusResolver.resolve(status, test.project_id)
-        user = RequestContext.get()
+        user = access.user
         result = TestResult.objects.create(
             project_id=test.project_id,
             test=test,

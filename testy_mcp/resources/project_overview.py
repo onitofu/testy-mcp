@@ -1,16 +1,17 @@
+from testy_mcp.services.access_control import AccessControl
+
+
 class ProjectOverviewResource:
     name = "project_overview"
     uri = "testy://project/{project_id}/overview"
 
     def execute(self, project_id: int) -> str:
         """Project overview: statistics and suite structure."""
-        from testy.core.models import Project
-        from testy.tests_description.models import TestSuite
-
-        project = Project.objects.get(id=project_id, is_deleted=False)
+        access = AccessControl()
+        project = access.get("project", project_id)
         stats = {}
-        if hasattr(project, "project_statistics"):
-            s = project.project_statistics
+        if hasattr(project, "projectstatistics"):
+            s = project.projectstatistics
             stats = {
                 "suites": s.suites_count,
                 "cases": s.cases_count,
@@ -24,12 +25,11 @@ class ProjectOverviewResource:
             "",
             "Structure:",
         ]
-        suites = list(TestSuite.objects.filter(project=project, is_deleted=False))
+        suites = list(access.list("suite", project_id))
         from django.db.models import Count
-        from testy.tests_description.models import TestCase
 
         case_counts = dict(
-            TestCase.objects.filter(project=project, is_deleted=False)
+            access.list("case", project_id)
             .values("suite_id")
             .annotate(count=Count("id"))
             .values_list("suite_id", "count")

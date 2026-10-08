@@ -1,9 +1,12 @@
 from django.db import transaction
 
+from testy_mcp.services.access_control import AccessControl
+
 
 class CreateSuitesBulkTool:
     name = "create_suites_bulk"
 
+    @transaction.atomic
     def execute(self, project_id: int, suites: list[dict]) -> list[dict]:
         """Create multiple test suites in one atomic operation. Supports nested structure.
 
@@ -12,6 +15,9 @@ class CreateSuitesBulkTool:
             suites: Array of suites. Each suite:
                     {"name": str, "description": str, "children": [...]}
         """
+        access = AccessControl()
+        access.create("suite", project_id)
+        access.suite_payloads(suites)
         created = []
         with transaction.atomic():
             for suite_data in suites:

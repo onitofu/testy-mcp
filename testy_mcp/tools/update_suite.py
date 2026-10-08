@@ -1,6 +1,12 @@
+from django.db import transaction
+
+from testy_mcp.services.access_control import AccessControl
+
+
 class UpdateSuiteTool:
     name = "update_suite"
 
+    @transaction.atomic
     def execute(
         self,
         suite_id: int,
@@ -16,9 +22,10 @@ class UpdateSuiteTool:
             description: New description
             parent_id: New parent suite ID
         """
-        from testy.tests_description.models import TestSuite
-
-        suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
+        access = AccessControl()
+        suite = access.get("suite", suite_id, "update")
+        if parent_id is not None:
+            access.parent("suite", parent_id, suite.project_id, suite)
         if name is not None:
             suite.name = name
         if description is not None:

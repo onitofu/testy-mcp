@@ -1,5 +1,7 @@
 from django.db import transaction
+from rest_framework.exceptions import ValidationError
 
+from testy_mcp.services.access_control import AccessControl
 from testy_mcp.services.case_labels import CaseLabels
 
 
@@ -7,6 +9,7 @@ class CreateCasesBulkTool:
     name = "create_cases_bulk"
     MAX_BULK_CASES = 100
 
+    @transaction.atomic
     def execute(self, project_id: int, suite_id: int, cases: list[dict]) -> list[dict]:
         """Create multiple test cases in one atomic operation.
 
@@ -27,7 +30,12 @@ class CreateCasesBulkTool:
         from testy.tests_description.models import TestCase, TestCaseStep
 
         if len(cases) > self.MAX_BULK_CASES:
-            raise ValueError(f"Maximum {self.MAX_BULK_CASES} cases per call, got {len(cases)}")
+            raise ValidationError(f"Maximum {self.MAX_BULK_CASES} cases per call, got {len(cases)}")
+        access = AccessControl()
+        access.create("case", project_id)
+        access.related("suite", suite_id, project_id)
+        for case_data in cases:
+            access.case_payload(case_data, project_id)
         created = []
         with transaction.atomic():
             for case_data in cases:

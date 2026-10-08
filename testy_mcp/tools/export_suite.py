@@ -1,5 +1,6 @@
 from testy_mcp.formatters.suite_json_formatter import SuiteJsonFormatter
 from testy_mcp.formatters.suite_markdown_formatter import SuiteMarkdownFormatter
+from testy_mcp.services.access_control import AccessControl
 
 
 class ExportSuiteTool:
@@ -15,19 +16,20 @@ class ExportSuiteTool:
             include_children: Include nested suites (default: True)
             format: "markdown" (default) or "json"
         """
-        from testy.tests_description.models import TestCase, TestSuite
-
-        suite = TestSuite.objects.get(id=suite_id, is_deleted=False)
+        access = AccessControl()
+        suite = access.get("suite", suite_id)
         if include_children:
-            all_suites = list(TestSuite.objects.filter(project=suite.project, is_deleted=False))
+            all_suites = list(access.list("suite", suite.project_id))
             descendant_ids = self._get_descendant_ids(suite.id, all_suites)
             descendant_ids.add(suite.id)
         else:
             descendant_ids = {suite.id}
-        suites = TestSuite.objects.filter(id__in=descendant_ids, is_deleted=False)
-        cases = TestCase.objects.filter(
-            suite_id__in=descendant_ids, is_deleted=False
-        ).select_related("suite")
+        suites = access.list("suite", suite.project_id).filter(id__in=descendant_ids)
+        cases = (
+            access.list("case", suite.project_id)
+            .filter(suite_id__in=descendant_ids)
+            .select_related("suite")
+        )
         if format == "json":
             return SuiteJsonFormatter().format(suite, suites, cases)
         return SuiteMarkdownFormatter().format(suite, suites, cases)
