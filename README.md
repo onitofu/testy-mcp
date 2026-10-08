@@ -1,6 +1,8 @@
 # TestY MCP
 
-MCP plugin for [TestY](https://yadro.com/ru/opensource/testy/) that lets AI clients
+[Website](https://yadro.com/ru/opensource/testy/)
+
+MCP plugin for [TestY](https://gitlab-pub.yadro.com/testy) that lets AI clients
 manage test suites, cases, plans and results. Supports bulk operations and exports
 for test generation and result analysis.
 
@@ -36,10 +38,34 @@ for test generation and result analysis.
 | `list_statuses` | List system and custom result statuses. |
 | `get_plan_statistics` | Get status distribution, pass rate and completion rate. |
 
+## Server installation
+
+Verified only with [TestY](https://gitlab-pub.yadro.com/testy) `2.2.1`, Python
+`3.11.9`.
+
+1. Add `testy-mcp` in `backend/testy/requirements/prod.in`.
+
+   ```text
+   git+https://github.com/onitofu/testy-mcp.git@v1.0.0
+   ```
+
+2. Regenerate lock files in the project's Python environment.
+
+   ```bash
+   cd backend/testy/requirements
+   pip-compile prod.in
+   pip-compile dev.in
+   ```
+
+3. In `nginx/testy-dev.conf.template` or `nginx/testy-prod.conf.template`, add
+   `\.well-known` to the existing backend route expression alongside `plugins`.
+
+4. Rebuild and restart.
+
 ## Clients
 
 Replace `http://127.0.0.1/plugins/mcp/` with your
-[TestY](https://yadro.com/ru/opensource/testy/) MCP endpoint URL.
+[TestY](https://gitlab-pub.yadro.com/testy) MCP endpoint URL.
 
 ### Codex CLI
 
@@ -50,9 +76,7 @@ codex mcp login testy
 
 ### Codex Desktop
 
-Add an HTTP MCP server with your
-[TestY](https://yadro.com/ru/opensource/testy/) MCP endpoint URL and sign in through
-the browser.
+Add an HTTP MCP server with the endpoint URL and sign in through the browser.
 
 ### Claude Code
 
@@ -61,4 +85,10 @@ claude mcp add --transport http testy http://127.0.0.1/plugins/mcp/
 ```
 
 Select authentication in `/mcp` and sign in through the browser with your
-[TestY](https://yadro.com/ru/opensource/testy/) account.
+[TestY](https://gitlab-pub.yadro.com/testy) account.
+
+Verify with `get_me`. Example:
+
+```json
+{"username":"admin","first_name":"","last_name":""}
+```
