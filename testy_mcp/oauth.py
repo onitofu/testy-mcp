@@ -1,5 +1,7 @@
 class OAuthMetadata:
     SUPPORTED_SCOPES = ["openid", "email", "profile", "read", "write", "mcp:read", "mcp:write"]
+    SUPPORTED_GRANT_TYPES = ["authorization_code", "refresh_token"]
+    SUPPORTED_TOKEN_AUTH_METHODS = ["client_secret_post", "none"]
     RESOURCE_PATH = "/plugins/mcp/"
     PROTECTED_RESOURCE_METADATA_PATH = f"/.well-known/oauth-protected-resource{RESOURCE_PATH}"
 
@@ -38,8 +40,8 @@ class OAuthMetadata:
             "token_endpoint": f"{base_url}/oauth/token/",
             "registration_endpoint": f"{base_url}/oauth/register/",
             "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "grant_types_supported": cls.SUPPORTED_GRANT_TYPES,
             "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
+            "token_endpoint_auth_methods_supported": cls.SUPPORTED_TOKEN_AUTH_METHODS,
             "scopes_supported": cls.SUPPORTED_SCOPES,
         }
