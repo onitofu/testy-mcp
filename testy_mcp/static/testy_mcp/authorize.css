@@ -1,0 +1,194 @@
+/* Shared components and tokens are bundled from TestY frontend/src/shared/styles.
+   Keep uikit.css and variables.css identical to their frontend sources.
+   Only consent layout and the frontend global/component overrides belong here. */
+@font-face {
+  font-family: "Inter";
+  src: local("Inter"), url("Inter-VariableFont.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  font-family: "Inter", sans-serif;
+  color: var(--y-color-text-primary);
+  background: var(--y-color-background);
+  font-size: var(--y-size-text-m);
+  line-height: 22px;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: var(--y-size-radius-s);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--y-size-height-l) 0;
+  background: var(--y-color-background);
+}
+
+/* LoginPage uses a 448px container including 24px padding on either side. */
+.consent {
+  width: 100%;
+  max-width: 448px;
+  padding: 0 var(--y-size-padding-l);
+  overflow-wrap: anywhere;
+}
+
+.brand {
+  margin-bottom: var(--y-size-margin-xl);
+}
+
+.brand img {
+  display: block;
+}
+
+/* Typography.Title level 1 and level 4 from theme-provider.tsx. */
+h1 {
+  font-size: var(--y-size-header-xl);
+  line-height: var(--y-size-line-height-m);
+  margin: 0 0 var(--y-size-margin-im);
+  font-weight: var(--u-font-weight-semibold);
+}
+
+h2 {
+  font-size: var(--y-size-header-s);
+  line-height: var(--y-size-line-height-s);
+  margin: 0 0 var(--y-size-margin-im);
+  font-weight: var(--u-font-weight-semibold);
+}
+
+p {
+  margin: 0;
+}
+
+.intro {
+  color: var(--y-color-text-secondary);
+  margin-bottom: var(--y-size-margin-l);
+}
+
+.identity {
+  margin: 0 0 var(--y-size-margin-l);
+  padding: var(--y-size-padding-m) 0;
+  border-top: var(--y-size-border-s) solid var(--y-color-divider);
+  border-bottom: var(--y-size-border-s) solid var(--y-color-divider);
+}
+
+.identity div + div {
+  margin-top: var(--y-size-margin-m);
+}
+
+dt {
+  color: var(--y-color-text-secondary);
+  margin-bottom: var(--y-size-margin-xs);
+}
+
+dd {
+  margin: 0;
+  font-size: var(--y-size-text-l);
+  line-height: var(--y-size-line-height-s);
+}
+
+.permissions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.permissions li {
+  padding: var(--y-size-padding-m);
+  background: var(--y-color-background-alternative);
+  border-left: var(--y-size-border-l) solid var(--y-color-accent);
+}
+
+.permissions li + li {
+  margin-top: var(--y-size-margin-s);
+}
+
+.permissions strong {
+  font-weight: var(--u-font-weight-semibold);
+}
+
+.permissions p {
+  color: var(--y-color-text-secondary);
+  margin-top: var(--y-size-margin-xs);
+}
+
+.additional {
+  margin-top: var(--y-size-margin-l);
+}
+
+.additional summary {
+  cursor: pointer;
+  color: var(--y-color-text-secondary);
+}
+
+.additional ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--y-size-gap-s);
+  list-style: none;
+  margin: var(--y-size-margin-im) 0 0;
+  padding: 0;
+}
+
+.additional li {
+  padding: var(--y-size-padding-xs) var(--y-size-padding-s);
+  background: var(--y-color-background-alternative);
+  font-size: var(--y-size-text-s);
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--y-size-gap-m);
+  margin-top: var(--y-size-margin-xl);
+}
+
+/* Button/styles.module.css and global.css overrides used by the frontend. */
+.y-button {
+  min-width: fit-content;
+  border-width: var(--y-size-border-s);
+  font-family: inherit;
+  box-shadow: none;
+}
+
+.actions .-y-accent {
+  flex: 1;
+}
+
+.additional summary:focus-visible {
+  outline: var(--y-size-control-outline) solid var(--y-color-accent-focus);
+  outline-offset: var(--y-size-control-outline-offset);
+}
+
+.y-alert-text ul {
+  margin: 0;
+  padding-left: var(--y-size-padding-il);
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: var(--y-size-padding-l) 0;
+    align-items: flex-start;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--y-size-gap-s);
+  }
+
+  .actions .-y-ghost {
+    align-self: flex-start;
+  }
+}

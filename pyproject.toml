@@ -29,6 +29,14 @@ testy-mcp = "testy_mcp"
 [tool.setuptools.packages.find]
 include = ["testy_mcp*"]
 
+[tool.setuptools.package-data]
+testy_mcp = [
+    "templates/testy_mcp/*.html",
+    "static/testy_mcp/*.css",
+    "static/testy_mcp/*.svg",
+    "static/testy_mcp/*.ttf",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py310']

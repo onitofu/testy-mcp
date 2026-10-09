@@ -14,8 +14,10 @@ urlpatterns = [
 try:
     from oauth2_provider import views as oauth_views
 
+    from testy_mcp.authorization_view import McpAuthorizationView
+
     urlpatterns += [
-        path("oauth/authorize/", oauth_views.AuthorizationView.as_view(), name="oauth-authorize"),
+        path("oauth/authorize/", McpAuthorizationView.as_view(), name="oauth-authorize"),
         path("oauth/token/", oauth_views.TokenView.as_view(), name="oauth-token"),
         path("oauth/revoke/", oauth_views.RevokeTokenView.as_view(), name="oauth-revoke"),
     ]

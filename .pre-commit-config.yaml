@@ -7,8 +7,12 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        # Preserve the generated stylesheet copied from the TestY frontend.
+        exclude: ^testy_mcp/static/testy_mcp/uikit\.css$
       - id: check-yaml
       - id: check-added-large-files
+        # These bundled frontend assets intentionally exceed the size limit.
+        exclude: ^testy_mcp/static/testy_mcp/(Inter-VariableFont\.ttf|uikit\.css)$
 
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
